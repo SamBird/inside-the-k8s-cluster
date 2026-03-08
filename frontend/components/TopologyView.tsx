@@ -43,7 +43,10 @@ export function TopologyView({ state }: TopologyViewProps) {
     );
   }
 
-  const nodeList = state.nodes.length
+  const workerNodes = state.nodes.filter((node) => node.role !== "control-plane");
+  const nodeList = workerNodes.length
+    ? workerNodes
+    : state.nodes.length
     ? state.nodes
     : [
         {
@@ -55,35 +58,28 @@ export function TopologyView({ state }: TopologyViewProps) {
       ];
 
   const grouped = podsByNode(nodeList, state.pods);
-  const readyPods = state.pods.filter((pod) => pod.ready).length;
+  const workerNodeSet = new Set(nodeList.map((node) => node.name));
+  const scheduledOnWorkers = state.pods.filter((pod) => pod.node_name && workerNodeSet.has(pod.node_name)).length;
 
   return (
     <section className="panel topology-panel">
       <div className="panel-header-row">
-        <h2>Topology View</h2>
+        <h2>Worker Nodes</h2>
         <p className="panel-subtitle">
-          Readiness controls Service endpoints. Unready pods can still run but should not receive traffic.
+          Pod placement by node. Control plane and workload resource details are shown in dedicated sections.
         </p>
       </div>
 
       <div className="topology-grid">
         <div className="cluster-block">
           <div className="cluster-title-row">
-            <h3>Cluster</h3>
+            <h3>Worker Node Topology</h3>
             <StatusBadge
-              tone={state.deployment.exists ? "ok" : "warn"}
-              label={state.deployment.exists ? "Deployment Present" : "Deployment Missing"}
+              tone={nodeList.some((node) => node.ready) ? "ok" : "warn"}
+              label={`${scheduledOnWorkers} Pods Scheduled`}
             />
           </div>
           <p className="cluster-meta">Namespace: {state.namespace}</p>
-
-          <div className="service-box">
-            <h4>Service: {state.service.name}</h4>
-            <p>
-              Type: {state.service.type ?? "unknown"} | Ready endpoints: {readyPods}/{state.pods.length}
-            </p>
-            <p>Cluster IP: {state.service.cluster_ip ?? "n/a"}</p>
-          </div>
 
           <div className="node-columns">
             {nodeList.map((node) => {

@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ActionControls } from "../components/ActionControls";
+import { ControlPlaneOverview } from "../components/ControlPlaneOverview";
 import { DesiredActualPanel } from "../components/DesiredActualPanel";
 import { EventTimeline } from "../components/EventTimeline";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
+import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
 import {
   ApiError,
   deletePod,
@@ -273,9 +275,13 @@ export default function DashboardPage() {
           <DesiredActualPanel desired={desired} actual={state} />
         </div>
 
-        <div className="reveal-4 layout-span-2">
+        <ControlPlaneOverview />
+
+        <div className="reveal-4">
           <TopologyView state={state} />
         </div>
+
+        <WorkloadResourcesPanel state={state} />
 
         <div className="reveal-5">
           <TrafficPanel

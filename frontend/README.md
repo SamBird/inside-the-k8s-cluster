@@ -4,7 +4,9 @@ Projector-friendly Next.js + TypeScript dashboard for the Kubernetes live demo.
 
 ## Features
 
-- topology view (cluster, service, nodes, pods)
+- control-plane overview (kube-apiserver, etcd, kube-scheduler, kube-controller-manager)
+- worker-node topology view (node readiness and pod placement)
+- workload resources panel (Deployment, ReplicaSet, Pods, Service)
 - desired vs actual state panel
 - SSE-driven live event timeline
 - traffic response panel showing pod/node/version/readiness
@@ -29,6 +31,7 @@ NEXT_PUBLIC_DEMO_APP_BASE_URL=http://localhost:8080
 
 - `NEXT_PUBLIC_BACKEND_URL` points to FastAPI backend.
 - `NEXT_PUBLIC_DEMO_APP_BASE_URL` should point to demo-app HTTP endpoint.
+- control-plane cards are explanatory teaching content, not per-component telemetry.
   For local cluster usage, port-forward service first:
 
 ```bash

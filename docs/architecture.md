@@ -26,7 +26,8 @@ The system has four layers:
 
 4. Presentation layer (`frontend`):
 - Next.js dashboard
-- topology, state drift, timeline, traffic response views
+- control-plane overview + worker-node topology + workload resource views
+- state drift, timeline, traffic response views
 - operator action buttons for demo flow
 
 ## Data Flow
@@ -36,6 +37,8 @@ The system has four layers:
 3. Backend watches demo pods and emits updated state snapshots.
 4. Frontend updates topology and timeline from each new snapshot.
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
+
+Control-plane component cards in the UI are intentionally explanatory for teaching and are not direct process-level telemetry from the cluster.
 
 ## Kubernetes Resources
 

@@ -273,6 +273,30 @@ button {
   margin-top: 10px;
 }
 
+.control-plane-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.control-plane-card {
+  border: 2px solid #486474;
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, #eef5ff, #f8fbff);
+}
+
+.control-plane-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.control-plane-card p {
+  margin: 6px 0;
+  font-size: 0.93rem;
+}
+
 .cluster-block {
   border: 2px dashed #4f798f;
   border-radius: 12px;
@@ -359,6 +383,35 @@ button {
   margin-top: 6px;
   color: var(--ink-soft);
   font-size: 0.9rem;
+}
+
+.resource-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.resource-card {
+  border: 2px solid #657b88;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.resource-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.resource-card-header h3 {
+  margin: 0;
+}
+
+.resource-card p {
+  margin: 6px 0;
+  font-size: 0.93rem;
 }
 
 .timeline-list {
@@ -491,6 +544,10 @@ button {
   }
 
   .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-plane-grid {
     grid-template-columns: 1fr;
   }
 
