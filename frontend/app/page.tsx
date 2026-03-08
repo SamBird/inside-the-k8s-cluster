@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionControls } from "../components/ActionControls";
 import { ControlPlaneOverview } from "../components/ControlPlaneOverview";
 import { DesiredActualPanel } from "../components/DesiredActualPanel";
+import { ExplainedFlowPanel } from "../components/ExplainedFlowPanel";
 import { EventTimeline } from "../components/EventTimeline";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
@@ -31,6 +32,7 @@ import {
   TimelineEvent,
   TrafficEvent
 } from "../lib/types";
+import { ExplainedFlowRun, ExplainedFlowScenario } from "../lib/explainedFlow";
 
 const demoTrafficBaseUrl = process.env.NEXT_PUBLIC_DEMO_APP_BASE_URL ?? "http://localhost:8080";
 
@@ -70,6 +72,8 @@ export default function DashboardPage() {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [explainedScenario, setExplainedScenario] = useState<ExplainedFlowScenario>("deploy-app");
+  const [explainedRun, setExplainedRun] = useState<ExplainedFlowRun | null>(null);
   const [selectedPod, setSelectedPod] = useState<string>("");
   const [rolloutTag, setRolloutTag] = useState<string>("v2");
   const [trafficCount, setTrafficCount] = useState<number>(12);
@@ -136,9 +140,19 @@ export default function DashboardPage() {
   const runAction = async (
     actionLabel: string,
     request: () => Promise<ActionResponse>,
-    desiredPatch?: Partial<DesiredState>
+    desiredPatch?: Partial<DesiredState>,
+    explainedFlowScenario?: ExplainedFlowScenario
   ): Promise<void> => {
     setBusyAction(actionLabel);
+    if (explainedFlowScenario) {
+      setExplainedScenario(explainedFlowScenario);
+      setExplainedRun({
+        scenario: explainedFlowScenario,
+        status: "running",
+        actionLabel,
+        startedAt: new Date().toISOString()
+      });
+    }
     try {
       const result = await request();
       setState(result.state);
@@ -146,10 +160,30 @@ export default function DashboardPage() {
       if (desiredPatch) {
         setDesired((previous) => ({ ...previous, ...desiredPatch }));
       }
+      if (explainedFlowScenario) {
+        setExplainedRun({
+          scenario: explainedFlowScenario,
+          status: "success",
+          actionLabel,
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          message: result.message
+        });
+      }
       setTimeline((existing) =>
         prependTimeline(existing, [newTimeline("success", actionLabel, result.message)])
       );
     } catch (error) {
+      if (explainedFlowScenario) {
+        setExplainedRun({
+          scenario: explainedFlowScenario,
+          status: "error",
+          actionLabel,
+          startedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          message: String(error)
+        });
+      }
       setTimeline((existing) => prependTimeline(existing, [newTimeline("error", `${actionLabel} failed`, String(error))]));
     } finally {
       setBusyAction(null);
@@ -227,15 +261,15 @@ export default function DashboardPage() {
             busyAction={busyAction}
             onSelectPod={setSelectedPod}
             onRolloutVersion={setRolloutTag}
-            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
-            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
-            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
-            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
+            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true }, "deploy-app")}
+            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 }, "scale-deployment")}
+            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 }, "scale-deployment")}
+            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined), undefined, "delete-pod")}
             onBreakReadiness={() =>
-              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false })
+              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false }, "break-readiness")
             }
             onRestoreReadiness={() =>
-              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true })
+              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true }, "break-readiness")
             }
             onRollout={() => {
               const tag = rolloutTag.trim();
@@ -263,27 +297,38 @@ export default function DashboardPage() {
                     throw error;
                   }
                 },
-                { deployed: true, version: tag }
+                { deployed: true, version: tag },
+                "rollout-new-version"
               );
             }}
             onGenerateTraffic={onGenerateTraffic}
-            onReset={() => runAction("Reset demo", resetDemo, defaultDesired)}
+            onReset={() => {
+              setExplainedRun(null);
+              runAction("Reset demo", resetDemo, defaultDesired);
+            }}
           />
         </div>
 
-        <div className="reveal-3">
+        <div className="reveal-4">
           <DesiredActualPanel desired={desired} actual={state} />
         </div>
 
         <ControlPlaneOverview />
 
-        <div className="reveal-4">
+        <ExplainedFlowPanel
+          scenario={explainedScenario}
+          run={explainedRun}
+          state={state}
+          onScenarioChange={setExplainedScenario}
+        />
+
+        <div className="reveal-5">
           <TopologyView state={state} />
         </div>
 
         <WorkloadResourcesPanel state={state} />
 
-        <div className="reveal-5">
+        <div className="reveal-6">
           <TrafficPanel
             trafficTarget={demoTrafficBaseUrl}
             requestCount={trafficCount}

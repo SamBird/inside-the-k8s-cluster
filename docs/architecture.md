@@ -27,6 +27,7 @@ The system has four layers:
 4. Presentation layer (`frontend`):
 - Next.js dashboard
 - control-plane overview + worker-node topology + workload resource views
+- explained-flow sequence panel for deploy/scale/delete/readiness/rollout actions
 - state drift, timeline, traffic response views
 - operator action buttons for demo flow
 
@@ -38,7 +39,7 @@ The system has four layers:
 4. Frontend updates topology and timeline from each new snapshot.
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
 
-Control-plane component cards in the UI are intentionally explanatory for teaching and are not direct process-level telemetry from the cluster.
+Control-plane component cards and explained-flow sequences in the UI are intentionally educational. They are inferred from action context plus cluster state snapshots, not direct process-level telemetry from control-plane binaries.
 
 ## Kubernetes Resources
 

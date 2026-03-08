@@ -297,6 +297,106 @@ button {
   font-size: 0.93rem;
 }
 
+.explained-flow-controls {
+  margin-top: 10px;
+  display: inline-grid;
+  gap: 6px;
+}
+
+.explained-flow-controls label {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.explained-flow-controls select {
+  min-width: 280px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+  background: #fff;
+}
+
+.explained-flow-summary {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #b0c3cf;
+  border-radius: 10px;
+  background: #f3f7ff;
+}
+
+.explained-flow-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.explained-step {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #9db0bd;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.explained-step-index {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-content: center;
+  border-radius: 999px;
+  border: 1px solid #6f8b9a;
+  background: #edf3f7;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.explained-step p {
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.explained-step-pending {
+  opacity: 0.8;
+}
+
+.explained-step-active {
+  border-color: #af7a00;
+  background: #fff6de;
+}
+
+.explained-step-done {
+  border-color: #2f8e63;
+  background: #eaf8f1;
+}
+
+.explained-step-error {
+  border-color: #af4539;
+  background: #ffeae6;
+}
+
+.explained-live-state {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #8ca5b5;
+  background: #eef5fb;
+}
+
+.explained-live-state h3 {
+  margin: 0 0 6px;
+}
+
+.explained-live-state p {
+  margin: 4px 0;
+  font-size: 0.92rem;
+}
+
 .cluster-block {
   border: 2px dashed #4f798f;
   border-radius: 12px;
@@ -549,6 +649,11 @@ button {
 
   .control-plane-grid {
     grid-template-columns: 1fr;
+  }
+
+  .explained-flow-controls select {
+    min-width: 0;
+    width: 100%;
   }
 
   .hero-header {
