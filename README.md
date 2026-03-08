@@ -12,6 +12,7 @@ This project gives a live, visual explanation of Kubernetes control-loop behavio
 - `frontend/`: Next.js + TypeScript dashboard split into two views:
   - `/` live demo controls + live cluster state panels
   - `/teaching` conceptual control-plane overview + explained-flow teaching panels
+  - `/graph` graph-based cluster relationship view (control plane + resources + worker/pod topology + traffic/readiness paths)
 - `backend/`: FastAPI service that watches Kubernetes state and exposes actions
 - `demo-app/`: intentionally simple HTTP app used to demonstrate pod identity, readiness, and traffic behavior
 - `k8s/`: local manifests and `kind` cluster config

@@ -29,6 +29,7 @@ The system has four layers:
 - Next.js split-view dashboard:
   - `/` live demo controls + live state (desired/actual, topology, resources, traffic, timeline)
   - `/teaching` conceptual control-plane overview + explained-flow teaching panel
+- `/graph` React Flow visualization of control-plane concepts plus live discovered resources/nodes/pods/traffic readiness links
 - explained-flow sequence panel for `Apply YAML journey`, `Controller reconciliation`, deploy/scale/readiness/rollout actions
 - operator action buttons for demo flow (live demo view)
 
@@ -58,6 +59,10 @@ The demo intentionally uses two layers:
 Control-plane component cards and explained-flow sequences are educational/inferred models.  
 Live node/resource context is discovered from Kubernetes API snapshots and is labeled separately.  
 This avoids implying process-level telemetry for control-plane binaries.
+
+The graph view follows the same boundary:
+- conceptual control-plane edges are clearly marked as teaching relationships
+- resource/node/pod/traffic edges are derived from live backend state snapshots
 
 ## Revised Talk Sequence
 
