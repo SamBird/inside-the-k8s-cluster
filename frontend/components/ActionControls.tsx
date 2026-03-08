@@ -95,7 +95,15 @@ export function ActionControls({
         </button>
       </div>
 
-      {busyAction ? <p className="presenter-status">Running now: {busyAction}</p> : null}
+      {busyAction ? (
+        <p className="presenter-status" role="status" aria-live="polite">
+          <span className="inline-spinner" aria-hidden="true" />
+          <span>Running now: {busyAction}</span>
+          <span className="presenter-status-note">
+            Waiting for Kubernetes reconciliation. Pod and readiness changes can take a few seconds.
+          </span>
+        </p>
+      ) : null}
     </section>
   );
 }

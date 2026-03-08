@@ -51,7 +51,14 @@ export function TrafficPanel({
           <input type="number" min={0} max={3000} value={delayMs} onChange={(event) => onDelayChange(Number(event.target.value))} />
         </label>
         <button className="action-button" onClick={onGenerate} disabled={running}>
-          {running ? "Generating..." : "Generate Traffic"}
+          {running ? (
+            <span className="button-with-spinner">
+              <span className="inline-spinner" aria-hidden="true" />
+              <span>Generating...</span>
+            </span>
+          ) : (
+            "Generate Traffic"
+          )}
         </button>
       </div>
 
