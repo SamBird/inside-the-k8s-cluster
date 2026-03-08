@@ -20,7 +20,7 @@ export interface ExplainedFlowScenarioDefinition {
   steps: ExplainedFlowStep[];
 }
 
-export type ExplainedFlowRunStatus = "running" | "success" | "error";
+export type ExplainedFlowRunStatus = "selected" | "running" | "success" | "error";
 
 export interface ExplainedFlowRun {
   scenario: ExplainedFlowScenario;

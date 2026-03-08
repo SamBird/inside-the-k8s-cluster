@@ -20,6 +20,12 @@ function stepStateForIndex(run: ExplainedFlowRun | null, index: number): StepSta
   if (!run) {
     return "pending";
   }
+  if (run.status === "selected") {
+    if (index === 0) {
+      return "active";
+    }
+    return "pending";
+  }
   if (run.status === "success") {
     return "done";
   }
@@ -44,6 +50,9 @@ function stepStateForIndex(run: ExplainedFlowRun | null, index: number): StepSta
 function runStatusLabel(run: ExplainedFlowRun | null): { tone: "neutral" | "ok" | "warn" | "bad"; label: string } {
   if (!run) {
     return { tone: "neutral", label: "No recent action" };
+  }
+  if (run.status === "selected") {
+    return { tone: "neutral", label: "Scenario selected" };
   }
   if (run.status === "running") {
     return { tone: "warn", label: "Action in progress" };

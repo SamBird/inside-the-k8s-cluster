@@ -60,11 +60,10 @@ export default function TeachingPage() {
     const next = findExplainedFlowScenario(nextScenario);
     setExplainedRun({
       scenario: nextScenario,
-      status: "success",
+      status: "selected",
       actionLabel: next.label,
       startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      message: "Educational scenario selected."
+      message: "Scenario selected. Steps below describe the conceptual control-plane sequence."
     });
   };
 
