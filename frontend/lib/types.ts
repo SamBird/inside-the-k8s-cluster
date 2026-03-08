@@ -99,3 +99,39 @@ export interface TrafficEvent {
   ok: boolean;
   response: DemoTrafficResponse;
 }
+
+export interface ControlPlaneLeaseState {
+  name: string;
+  holder_identity?: string | null;
+  renew_time?: string | null;
+  acquire_time?: string | null;
+  lease_duration_seconds?: number | null;
+  lease_transitions?: number | null;
+}
+
+export interface ControlPlaneComponentState {
+  key: "kube-apiserver" | "etcd" | "kube-scheduler" | "kube-controller-manager";
+  title: string;
+  what_it_does: string;
+  when_involved: string;
+  reconciliation_link: string;
+  observed: boolean;
+  pod_name?: string | null;
+  phase?: string | null;
+  ready: boolean;
+  restart_count: number;
+  image?: string | null;
+  node_name?: string | null;
+  pod_ip?: string | null;
+  started_at?: string | null;
+  lease?: ControlPlaneLeaseState | null;
+  notes: string[];
+}
+
+export interface ControlPlaneState {
+  namespace: string;
+  discovered_at: string;
+  control_plane_node_names: string[];
+  components: ControlPlaneComponentState[];
+  discovery_warnings: string[];
+}

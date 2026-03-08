@@ -393,6 +393,45 @@ button {
   font-size: 0.93rem;
 }
 
+.control-plane-live-signals {
+  margin-top: 10px;
+  border: 1px solid #8ea5b4;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.control-plane-live-signals h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.control-plane-live-signals p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+
+.control-plane-lease-card {
+  margin-top: 8px;
+  border: 1px dashed #6f8796;
+  border-radius: 8px;
+  padding: 8px;
+  background: #f7fbff;
+}
+
+.control-plane-signal-notes {
+  margin-top: 8px;
+  border: 1px solid #c6952d;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff6df;
+}
+
+.control-plane-signal-notes ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
 .control-plane-live {
   margin-top: 12px;
   border: 2px solid #6b8494;

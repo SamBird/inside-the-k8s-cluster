@@ -101,3 +101,39 @@ class TrafficInfoResponse(BaseModel):
     readiness: bool | None = None
     path: str | None = None
     source: Literal["service-proxy"] = "service-proxy"
+
+
+class ControlPlaneLeaseState(BaseModel):
+    name: str
+    holder_identity: str | None = None
+    renew_time: datetime | None = None
+    acquire_time: datetime | None = None
+    lease_duration_seconds: int | None = None
+    lease_transitions: int | None = None
+
+
+class ControlPlaneComponentState(BaseModel):
+    key: Literal["kube-apiserver", "etcd", "kube-scheduler", "kube-controller-manager"]
+    title: str
+    what_it_does: str
+    when_involved: str
+    reconciliation_link: str
+    observed: bool = False
+    pod_name: str | None = None
+    phase: str | None = None
+    ready: bool = False
+    restart_count: int = 0
+    image: str | None = None
+    node_name: str | None = None
+    pod_ip: str | None = None
+    started_at: datetime | None = None
+    lease: ControlPlaneLeaseState | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class ControlPlaneState(BaseModel):
+    namespace: str
+    discovered_at: datetime
+    control_plane_node_names: list[str] = Field(default_factory=list)
+    components: list[ControlPlaneComponentState] = Field(default_factory=list)
+    discovery_warnings: list[str] = Field(default_factory=list)
