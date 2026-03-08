@@ -2,6 +2,50 @@
 
 Use this as presenter guidance during the live demo.
 
+## 60-Second Panel Narration Map
+
+### Panel: Control Plane Overview (60 seconds)
+
+- Action:
+  Point to the `kube-apiserver`, `etcd`, `kube-scheduler`, and `kube-controller-manager` cards before running any action.
+- What audience should notice:
+  Each component has a distinct role, but all four participate in moving from desired state to actual state.
+- Key Kubernetes principle:
+  Reconciliation is a control-plane loop, not a single command execution path.
+- Suggested presenter words:
+  "When I click an action, I am changing desired state. The API server accepts it, etcd stores it, controllers react, and the scheduler places pods. This is why Kubernetes is declarative: the control plane continuously drives the cluster toward what we asked for."
+- Likely audience questions:
+  - "Are these components always running?"
+  - "Is this showing live metrics or conceptual roles?"
+
+### Panel: Worker Nodes (60 seconds)
+
+- Action:
+  Move to the worker topology panel while scaling or deleting a pod.
+- What audience should notice:
+  Pods are placed on worker nodes and can move/recover independently of control-plane explanation.
+- Key Kubernetes principle:
+  Scheduling and self-healing happen by reconciling pod placement against desired replicas.
+- Suggested presenter words:
+  "This panel is where control-plane decisions become visible as running pods on worker nodes. If a pod disappears, Kubernetes creates another to return to desired count, and the scheduler decides where it lands."
+- Likely audience questions:
+  - "Why did a pod land on this node?"
+  - "Can I influence placement with affinities or taints?"
+
+### Panel: Workload Resources (60 seconds)
+
+- Action:
+  Show Deployment, ReplicaSet, Pods, and Service cards during deploy, scale, readiness break/restore, and rollout.
+- What audience should notice:
+  Desired state is declared at Deployment level, while Pods and Service readiness show actual traffic-ready state.
+- Key Kubernetes principle:
+  Different resources represent different levels of intent and runtime reality.
+- Suggested presenter words:
+  "The Deployment is intent, ReplicaSet enforces pod count, Pods are concrete instances, and Service is stable access. When readiness fails, pods can still run, but Service routing changes. That separation is a core Kubernetes idea."
+- Likely audience questions:
+  - "Why show ReplicaSet separately from Deployment?"
+  - "Does Service send traffic to non-ready pods?"
+
 ## Step 1: Start With Baseline
 
 - Action:
