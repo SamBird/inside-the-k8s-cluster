@@ -64,7 +64,8 @@ kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
 - Highlight desired vs actual convergence and node placement changes.
 
 7. **Rollout behavior**
-- Build/load `v2` first:
+- If you used `make demo-all`, `v2` is already preloaded by default.
+- Otherwise build/load `v2` first:
 
 ```bash
 make demo-image VERSION=v2

@@ -10,6 +10,8 @@ Fast path:
 make demo-all VERSION=v1
 ```
 
+This command preloads rollout tags (default includes `v2`) so `Rollout new version` is stage-ready without extra build steps.
+
 Restore known-good baseline before rehearsal/live run:
 
 ```bash

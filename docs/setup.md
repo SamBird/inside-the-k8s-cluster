@@ -16,6 +16,13 @@ One-command alternative for the full presenter flow:
 make demo-all VERSION=v1
 ```
 
+By default this also preloads `demo-app:v2` for rollout demos. Override with:
+
+```bash
+make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=v2,v3
+make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=
+```
+
 If Docker is installed but not running, `demo-all` will attempt to start Colima automatically.
 To disable auto-start:
 

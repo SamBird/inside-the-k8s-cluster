@@ -6,6 +6,7 @@ KIND_CONFIG ?= k8s/kind-config.yaml
 NAMESPACE ?= inside-k8s-demo
 VERSION ?= v1
 NEW_VERSION ?= v2
+PRELOAD_ROLLOUT_VERSIONS ?= v2
 
 .PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop golden-reset rehearsal-check backend-install backend-run frontend-install frontend-run
 
@@ -25,6 +26,7 @@ help:
 	@echo "  make demo-status             Show demo namespace resources"
 	@echo "  make demo-up VERSION=v1      Build, load, deploy, and show demo status"
 	@echo "  make demo-all VERSION=v1     One-command end-to-end live-demo orchestration"
+	@echo "                               preloads rollout tags (default PRELOAD_ROLLOUT_VERSIONS=v2)"
 	@echo "                               (set AUTO_START_COLIMA=0 to disable colima auto-start)"
 	@echo "  make demo-all-down           One-command full teardown for local demo stack"
 	@echo "                               (set STOP_COLIMA=1 to also stop colima)"
@@ -82,7 +84,7 @@ demo-status:
 demo-up: demo-image demo-load demo-deploy demo-wait demo-status
 
 demo-all:
-	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) ./scripts/demo-all.sh
+	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) PRELOAD_ROLLOUT_VERSIONS=$(PRELOAD_ROLLOUT_VERSIONS) ./scripts/demo-all.sh
 
 demo-all-down:
 	@CLUSTER_NAME=$(CLUSTER_NAME) STOP_COLIMA=$(STOP_COLIMA) COLIMA_PROFILE=$(COLIMA_PROFILE) ./scripts/demo-all-down.sh

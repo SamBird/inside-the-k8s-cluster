@@ -57,6 +57,14 @@ Or run full live-demo orchestration in one command:
 make demo-all VERSION=v1
 ```
 
+`demo-all` also preloads rollout image tags for the talk (default: `v2`).
+Override or disable with:
+
+```bash
+make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=v2,v3
+make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=
+```
+
 For presentation baseline reset:
 
 ```bash

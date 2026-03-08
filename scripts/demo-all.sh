@@ -8,6 +8,7 @@ CLUSTER_NAME="${CLUSTER_NAME:-inside-k8s}"
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-${CLUSTER_NAME}}"
 NAMESPACE="${NAMESPACE:-inside-k8s-demo}"
 VERSION="${VERSION:-v1}"
+PRELOAD_ROLLOUT_VERSIONS="${PRELOAD_ROLLOUT_VERSIONS:-v2}"
 BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
 FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:3000}"
 DEMO_HEALTH_PORT="${DEMO_HEALTH_PORT:-18080}"
@@ -21,6 +22,7 @@ BACKEND_PID_FILE="${PID_DIR}/backend.pid"
 FRONTEND_PID_FILE="${PID_DIR}/frontend.pid"
 BACKEND_LOG_FILE="${LOG_DIR}/backend.log"
 FRONTEND_LOG_FILE="${LOG_DIR}/frontend.log"
+PRELOADED_TAGS=()
 
 step() {
   printf '\n==> %s\n' "$1"
@@ -158,6 +160,40 @@ start_frontend_if_needed() {
   fi
 }
 
+preload_rollout_images() {
+  step "Preparing rollout image tags"
+
+  if [[ -z "${PRELOAD_ROLLOUT_VERSIONS}" ]]; then
+    info "No extra rollout tags requested; skipping preload."
+    return 0
+  fi
+
+  local raw_tag
+  IFS=',' read -r -a rollout_tags <<<"$PRELOAD_ROLLOUT_VERSIONS"
+  for raw_tag in "${rollout_tags[@]}"; do
+    local tag="$raw_tag"
+    tag="${tag#"${tag%%[![:space:]]*}"}"
+    tag="${tag%"${tag##*[![:space:]]}"}"
+    [[ -n "$tag" ]] || continue
+
+    if [[ "$tag" == "$VERSION" ]]; then
+      info "Skipping preload for base tag '${tag}' (already built via demo-up)."
+      continue
+    fi
+
+    info "Preloading demo-app:${tag} for rollout demos"
+    make demo-image VERSION="$tag"
+    make demo-load VERSION="$tag"
+    PRELOADED_TAGS+=("$tag")
+  done
+
+  if [[ "${#PRELOADED_TAGS[@]}" -gt 0 ]]; then
+    ok "Rollout image preloading complete (${PRELOADED_TAGS[*]})"
+  else
+    info "No additional rollout tags preloaded."
+  fi
+}
+
 check_demo_app_http() {
   step "Running demo app HTTP health check"
 
@@ -193,12 +229,17 @@ check_demo_app_http() {
 
 print_summary() {
   step "Demo-all completed successfully"
+  local preload_summary="none"
+  if [[ "${#PRELOADED_TAGS[@]}" -gt 0 ]]; then
+    preload_summary="${PRELOADED_TAGS[*]}"
+  fi
   cat <<SUMMARY
 Presenter summary:
 - Cluster: ${CLUSTER_NAME}
 - Context: ${KUBE_CONTEXT}
 - Namespace: ${NAMESPACE}
 - Demo image prepared: demo-app:${VERSION}
+- Extra rollout images preloaded: ${preload_summary}
 - Demo resources: deployed and rollout complete
 - Backend: ${BACKEND_URL} (healthz ok)
 - Frontend: ${FRONTEND_URL} (reachable)
@@ -237,6 +278,7 @@ main() {
 
   step "Building and deploying demo app"
   make demo-up VERSION="$VERSION"
+  preload_rollout_images
 
   step "Ensuring backend dependencies"
   if [[ ! -x "${ROOT_DIR}/backend/.venv/bin/uvicorn" ]]; then
