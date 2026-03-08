@@ -29,7 +29,7 @@ The system has four layers:
 - Next.js split-view dashboard:
   - `/` live demo controls + live state (desired/actual, topology, resources, traffic, timeline)
   - `/teaching` conceptual control-plane overview + explained-flow teaching panel
-- `/graph` React Flow visualization of control-plane concepts plus live discovered resources/nodes/pods/traffic readiness links
+- `/graph` Cytoscape visualization of control-plane concepts plus live discovered resources/nodes/pods/traffic readiness links
 - explained-flow sequence panel for `Apply YAML journey`, `Controller reconciliation`, deploy/scale/readiness/rollout actions
 - operator action buttons for demo flow (live demo view)
 

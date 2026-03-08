@@ -10,7 +10,7 @@ Projector-friendly Next.js + TypeScript dashboard for the Kubernetes live demo.
   - `/graph`: graph-based relationship view for control plane, resources, nodes, pods, and traffic/readiness paths
 - control-plane overview (kube-apiserver, etcd, kube-scheduler, kube-controller-manager)
 - explained control-plane flow panel for core demo actions, including `Apply YAML journey` and `Controller reconciliation`
-- React Flow based graph visualization (`@xyflow/react`) for projector-friendly cluster relationship mapping
+- Cytoscape based graph visualization (`cytoscape`) for projector-friendly cluster relationship mapping
 - worker-node topology view (node readiness and pod placement)
 - workload resources panel (Deployment, ReplicaSet, Pods, Service)
 - desired vs actual state panel

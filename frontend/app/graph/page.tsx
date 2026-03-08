@@ -1,15 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-import {
-  Background,
-  Controls,
-  Edge,
-  Node,
-  ReactFlow
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Edge, Node } from "@xyflow/react";
+import type { Core as CytoscapeCore, CytoscapeOptions, LayoutOptions } from "cytoscape";
 
 import { PageNav } from "../../components/PageNav";
 import { getState, subscribeToState } from "../../lib/api";
@@ -21,14 +14,18 @@ import {
 } from "../../lib/clusterGraph";
 import { ClusterState, ConnectionState } from "../../lib/types";
 
-function metadataForNode(node: Node<ClusterGraphNodeData> | undefined): string[] {
-  if (!node) {
-    return [];
-  }
-  return node.data.metadata ?? [];
-}
-
 type GraphFocusMode = "overview" | "control-loop" | "traffic-readiness";
+
+type GraphModel = {
+  nodes: Node<ClusterGraphNodeData>[];
+  edges: Edge<ClusterGraphEdgeData>[];
+};
+
+type CytoscapeElement = {
+  data: Record<string, string | number | boolean>;
+  position?: { x: number; y: number };
+  classes?: string;
+};
 
 const focusModeConfig: Record<
   GraphFocusMode,
@@ -41,12 +38,7 @@ const focusModeConfig: Record<
   overview: {
     label: "Overview",
     description: "Clean default view of control-plane, ownership, and placement relationships.",
-    edgeKinds: [
-      "conceptual-control",
-      "reconciliation",
-      "ownership",
-      "placement"
-    ]
+    edgeKinds: ["conceptual-control", "reconciliation", "ownership", "placement"]
   },
   "control-loop": {
     label: "Control Loop",
@@ -60,18 +52,50 @@ const focusModeConfig: Record<
   }
 };
 
+function metadataForNode(node: Node<ClusterGraphNodeData> | undefined): string[] {
+  if (!node) {
+    return [];
+  }
+  return node.data.metadata ?? [];
+}
+
+function nodeHeight(category: ClusterGraphNodeData["category"]): number {
+  if (category === "group") {
+    return 36;
+  }
+  if (category === "live-workload") {
+    return 72;
+  }
+  return 68;
+}
+
+function numericWidth(node: Node<ClusterGraphNodeData>): number {
+  const width = node.style?.width;
+  if (typeof width === "number") {
+    return width;
+  }
+  if (typeof width === "string") {
+    const parsed = Number(width.replace("px", ""));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return 220;
+}
+
+function edgeClass(kind: ClusterGraphEdgeKind): string {
+  return `edge-${kind}`;
+}
+
 export default function ClusterGraphPage() {
   const [state, setState] = useState<ClusterState | null>(null);
-  const [graph, setGraph] = useState<{
-    nodes: Node<ClusterGraphNodeData>[];
-    edges: Edge<ClusterGraphEdgeData>[];
-  }>({
-    nodes: [],
-    edges: []
-  });
+  const [graph, setGraph] = useState<GraphModel>({ nodes: [], edges: [] });
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState<GraphFocusMode>("overview");
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cyRef = useRef<CytoscapeCore | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +156,7 @@ export default function ClusterGraphPage() {
     };
 
     applyLayout();
+
     return () => {
       cancelled = true;
     };
@@ -183,41 +208,294 @@ export default function ClusterGraphPage() {
     return related;
   }, [filteredEdges, selectedNodeId]);
 
-  const displayNodes = useMemo(() => {
-    return graph.nodes.filter((node) => visibleNodeIds.has(node.id)).map((node) => {
-      const isSelected = node.id === selectedNodeId;
-      const isRelated = relatedNodeIds.has(node.id);
-      const shouldDim = Boolean(selectedNodeId) && !isRelated;
-      return {
-        ...node,
-        style: {
-          ...node.style,
-          opacity: shouldDim ? 0.25 : 1,
-          boxShadow: isSelected ? "0 0 0 3px rgba(15,139,141,0.35)" : node.style?.boxShadow
-        }
-      } as Node<ClusterGraphNodeData>;
-    });
-  }, [graph.nodes, relatedNodeIds, selectedNodeId, visibleNodeIds]);
-
-  const displayEdges = useMemo(() => {
-    return filteredEdges.map((edge) => {
-      const isRelated = selectedNodeId
-        ? edge.source === selectedNodeId || edge.target === selectedNodeId
-        : true;
-      return {
-        ...edge,
-        label: selectedNodeId && isRelated ? edge.label : undefined,
-        style: {
-          ...edge.style,
-          opacity: isRelated ? 1 : 0.15
-        }
-      } as Edge<ClusterGraphEdgeData>;
-    });
+  const relatedEdgeIds = useMemo(() => {
+    const related = new Set<string>();
+    if (!selectedNodeId) {
+      return related;
+    }
+    for (const edge of filteredEdges) {
+      if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
+        related.add(edge.id);
+      }
+    }
+    return related;
   }, [filteredEdges, selectedNodeId]);
 
-  const onNodeClick = (_event: unknown, node: Node<ClusterGraphNodeData>) => {
-    setSelectedNodeId(node.id);
-  };
+  const elements = useMemo(() => {
+    const nextElements: CytoscapeElement[] = [];
+
+    for (const node of graph.nodes) {
+      if (!visibleNodeIds.has(node.id)) {
+        continue;
+      }
+
+      const isSelected = node.id === selectedNodeId;
+      const isRelated = selectedNodeId ? relatedNodeIds.has(node.id) : true;
+      const isFaded = Boolean(selectedNodeId) && !isRelated;
+      const width = numericWidth(node);
+      const height = nodeHeight(node.data.category);
+
+      const classes = [
+        "graph-node",
+        `node-${node.data.category}`,
+        `source-${node.data.source}`,
+        isSelected ? "is-selected" : "",
+        isFaded ? "is-faded" : ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      nextElements.push({
+        data: {
+          id: node.id,
+          label: node.data.label,
+          width,
+          height
+        },
+        position: {
+          x: node.position.x + width / 2,
+          y: node.position.y + height / 2
+        },
+        classes
+      });
+    }
+
+    for (const edge of filteredEdges) {
+      const kind = (edge.data?.kind ?? "ownership") as ClusterGraphEdgeKind;
+      const isRelated = selectedNodeId ? relatedEdgeIds.has(edge.id) : true;
+      const isFaded = Boolean(selectedNodeId) && !isRelated;
+      const edgeLabel =
+        typeof edge.label === "string" || typeof edge.label === "number" ? String(edge.label) : "";
+
+      const classes = [
+        "graph-edge",
+        edgeClass(kind),
+        selectedNodeId && isRelated ? "edge-show-label" : "",
+        isFaded ? "is-faded" : ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      nextElements.push({
+        data: {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          label: edgeLabel,
+          kind
+        },
+        classes
+      });
+    }
+
+    return nextElements;
+  }, [graph.nodes, filteredEdges, visibleNodeIds, selectedNodeId, relatedEdgeIds, relatedNodeIds]);
+
+  useEffect(() => {
+    let disposed = false;
+    let instance: CytoscapeCore | null = null;
+
+    const renderGraph = async () => {
+      if (!containerRef.current) {
+        return;
+      }
+
+      const cytoscape = (await import("cytoscape")).default;
+
+      if (disposed || !containerRef.current) {
+        return;
+      }
+
+      const style: CytoscapeOptions["style"] = [
+        {
+          selector: "node",
+          style: {
+            label: "data(label)",
+            width: "data(width)",
+            height: "data(height)",
+            shape: "round-rectangle",
+            "border-width": 2,
+            "border-color": "#45687d",
+            "text-wrap": "wrap",
+            "text-max-width": "200px",
+            "text-valign": "center",
+            "text-halign": "center",
+            "font-size": 13,
+            "font-weight": 700,
+            color: "#183240",
+            "background-color": "#eef7ff"
+          }
+        },
+        {
+          selector: "node.node-group",
+          style: {
+            shape: "round-rectangle",
+            "border-width": 0,
+            "background-opacity": 0,
+            "font-size": 16,
+            "font-weight": 800,
+            color: "#1b3a4b",
+            "text-wrap": "wrap",
+            "text-max-width": "260px"
+          }
+        },
+        {
+          selector: "node.node-conceptual",
+          style: {
+            "background-color": "#fff6de",
+            "border-color": "#915f00",
+            "border-style": "dashed"
+          }
+        },
+        {
+          selector: "node.node-live-resource",
+          style: {
+            "background-color": "#f2ecff",
+            "border-color": "#5f4a91"
+          }
+        },
+        {
+          selector: "node.node-live-node",
+          style: {
+            "background-color": "#e8f7ef",
+            "border-color": "#2f8e63"
+          }
+        },
+        {
+          selector: "node.node-live-workload",
+          style: {
+            "background-color": "#eef7ff",
+            "border-color": "#2d6f95"
+          }
+        },
+        {
+          selector: "edge",
+          style: {
+            width: 2,
+            "curve-style": "bezier",
+            "control-point-step-size": 44,
+            "line-color": "#2d6f95",
+            "target-arrow-color": "#2d6f95",
+            "target-arrow-shape": "triangle",
+            label: "",
+            color: "#173041",
+            "font-size": 10,
+            "text-background-color": "#ffffff",
+            "text-background-opacity": 0.94,
+            "text-background-padding": "3px",
+            "text-border-opacity": 0
+          }
+        },
+        {
+          selector: "edge.edge-show-label",
+          style: {
+            label: "data(label)"
+          }
+        },
+        {
+          selector: "edge.edge-conceptual-control",
+          style: {
+            "line-color": "#915f00",
+            "target-arrow-color": "#915f00",
+            "line-style": "dashed"
+          }
+        },
+        {
+          selector: "edge.edge-reconciliation",
+          style: {
+            "line-color": "#d48a00",
+            "target-arrow-color": "#d48a00",
+            "line-style": "dashed"
+          }
+        },
+        {
+          selector: "edge.edge-scheduling",
+          style: {
+            "line-color": "#7d6f00",
+            "target-arrow-color": "#7d6f00",
+            "line-style": "dashed"
+          }
+        },
+        {
+          selector: "edge.edge-placement",
+          style: {
+            "line-color": "#1f9d6a",
+            "target-arrow-color": "#1f9d6a"
+          }
+        },
+        {
+          selector: "edge.edge-traffic-ready",
+          style: {
+            width: 2.8,
+            "line-color": "#168b5f",
+            "target-arrow-color": "#168b5f"
+          }
+        },
+        {
+          selector: "edge.edge-traffic-blocked",
+          style: {
+            "line-color": "#c03a2b",
+            "target-arrow-color": "#c03a2b",
+            "line-style": "dashed"
+          }
+        },
+        {
+          selector: ".is-selected",
+          style: {
+            "border-width": 4,
+            "border-color": "#0f8b8d"
+          }
+        },
+        {
+          selector: ".is-faded",
+          style: {
+            opacity: 0.2
+          }
+        }
+      ];
+
+      const layout = {
+        name: "preset",
+        fit: false,
+        padding: 24
+      } as LayoutOptions;
+
+      instance = cytoscape({
+        container: containerRef.current,
+        elements,
+        style,
+        layout
+      });
+
+      instance.on("tap", "node", (event) => {
+        const target = event.target;
+        const id = String(target.id());
+        setSelectedNodeId(id.startsWith("group-") ? null : id);
+      });
+
+      instance.on("tap", (event) => {
+        if (event.target === instance) {
+          setSelectedNodeId(null);
+        }
+      });
+
+      cyRef.current = instance;
+      instance.fit(instance.nodes(), 24);
+      instance.center();
+    };
+
+    renderGraph();
+
+    return () => {
+      disposed = true;
+      if (instance) {
+        instance.destroy();
+      }
+      if (cyRef.current === instance) {
+        cyRef.current = null;
+      }
+    };
+  }, [elements]);
 
   return (
     <main className="page-shell">
@@ -249,6 +527,23 @@ export default function ClusterGraphPage() {
               {focusModeConfig[mode].label}
             </button>
           ))}
+          <button
+            type="button"
+            className="focus-chip"
+            onClick={() => {
+              const instance = cyRef.current;
+              if (!instance) {
+                return;
+              }
+              instance.fit(instance.nodes(), 24);
+              instance.center();
+            }}
+          >
+            Fit Graph
+          </button>
+          <button type="button" className="focus-chip" onClick={() => setSelectedNodeId(null)}>
+            Clear Highlight
+          </button>
         </div>
         <p className="panel-subtitle graph-focus-note">{activeFocus.description}</p>
         <div className="graph-legend-grid">
@@ -270,23 +565,7 @@ export default function ClusterGraphPage() {
         <div className="panel graph-canvas-panel">
           <h2>Cluster Relationship Graph</h2>
           <div className="graph-canvas">
-            <ReactFlow
-              key={`${displayNodes.length}-${displayEdges.length}-${focusMode}`}
-              nodes={displayNodes}
-              edges={displayEdges}
-              fitView
-              fitViewOptions={{ padding: 0.18, minZoom: 0.25, maxZoom: 1 }}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable
-              onNodeClick={onNodeClick}
-              onPaneClick={() => setSelectedNodeId(null)}
-              minZoom={0.35}
-              maxZoom={1.2}
-            >
-              <Background color="#d3dee8" gap={20} />
-              <Controls showInteractive={false} />
-            </ReactFlow>
+            <div ref={containerRef} className="cy-graph" />
           </div>
         </div>
 
@@ -299,8 +578,7 @@ export default function ClusterGraphPage() {
               </p>
               <p>{selectedNode.data.detail ?? "No additional detail."}</p>
               <p>
-                <strong>Source:</strong>{" "}
-                {selectedNode.data.source === "conceptual" ? "Conceptual teaching model" : "Live discovered state"}
+                <strong>Source:</strong> {selectedNode.data.source === "conceptual" ? "Conceptual teaching model" : "Live discovered state"}
               </p>
               <ul className="graph-meta-list">
                 {metadataForNode(selectedNode).map((line) => (
