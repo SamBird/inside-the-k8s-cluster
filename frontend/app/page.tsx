@@ -33,7 +33,7 @@ import {
   TimelineEvent,
   TrafficEvent
 } from "../lib/types";
-import { ExplainedFlowRun, ExplainedFlowScenario } from "../lib/explainedFlow";
+import { ExplainedFlowRun, ExplainedFlowScenario, findExplainedFlowScenario } from "../lib/explainedFlow";
 
 const trafficTargetLabel = "Backend proxy -> /api/traffic/info -> service/demo-app";
 
@@ -191,6 +191,22 @@ export default function DashboardPage() {
     }
   };
 
+  const onExplainedScenarioChange = (nextScenario: ExplainedFlowScenario) => {
+    setExplainedScenario(nextScenario);
+    const next = findExplainedFlowScenario(nextScenario);
+    setExplainedRun({
+      scenario: nextScenario,
+      status: "success",
+      actionLabel: next.label,
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      message: "Educational scenario selected. This panel explains inferred control-plane flow, paired with live state."
+    });
+    setTimeline((existing) =>
+      prependTimeline(existing, [newTimeline("info", `${next.label} selected`, "Updated explained-flow panel scenario")])
+    );
+  };
+
   const onGenerateTraffic = async () => {
     if (trafficRunning) {
       return;
@@ -321,7 +337,7 @@ export default function DashboardPage() {
           scenario={explainedScenario}
           run={explainedRun}
           state={state}
-          onScenarioChange={setExplainedScenario}
+          onScenarioChange={onExplainedScenarioChange}
         />
 
         <div className="reveal-5">
