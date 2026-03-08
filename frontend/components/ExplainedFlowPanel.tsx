@@ -13,6 +13,7 @@ interface ExplainedFlowPanelProps {
   state: ClusterState | null;
   onScenarioChange: (scenario: ExplainedFlowScenario) => void;
   onTriggerApplyYamlJourney: () => void;
+  onTriggerControllerReconciliation: () => void;
 }
 
 type StepState = "pending" | "active" | "done" | "error";
@@ -60,11 +61,14 @@ export function ExplainedFlowPanel({
   run,
   state,
   onScenarioChange,
-  onTriggerApplyYamlJourney
+  onTriggerApplyYamlJourney,
+  onTriggerControllerReconciliation
 }: ExplainedFlowPanelProps) {
   const selected = findExplainedFlowScenario(scenario);
   const runForSelection = run?.scenario === scenario ? run : null;
   const status = runStatusLabel(runForSelection);
+  const desiredReplicas = state?.deployment.replicas ?? 0;
+  const runningPods = state?.pods.filter((pod) => pod.phase === "Running").length ?? 0;
   const readyPods = state?.pods.filter((pod) => pod.ready).length ?? 0;
   const totalPods = state?.pods.length ?? 0;
 
@@ -92,9 +96,18 @@ export function ExplainedFlowPanel({
             </option>
           ))}
         </select>
-        <button type="button" className="action-button explained-flow-trigger" onClick={onTriggerApplyYamlJourney}>
-          Apply YAML journey
-        </button>
+        <div className="explained-flow-trigger-row">
+          <button type="button" className="action-button explained-flow-trigger" onClick={onTriggerApplyYamlJourney}>
+            Apply YAML journey
+          </button>
+          <button
+            type="button"
+            className="action-button explained-flow-trigger action-warn"
+            onClick={onTriggerControllerReconciliation}
+          >
+            Controller reconciliation
+          </button>
+        </div>
       </div>
 
       <p className="explained-flow-summary">{selected.summary}</p>
@@ -110,6 +123,23 @@ export function ExplainedFlowPanel({
           <strong>Reconciliation:</strong> control loops continuously compare desired vs actual and apply changes until they match.
         </p>
       </div>
+
+      {scenario === "controller-reconciliation" ? (
+        <div className="controller-explainer">
+          <h3>Controller Reconciliation Explained</h3>
+          <p>
+            <strong>What a controller does:</strong> watches resources and compares desired state with actual state.
+          </p>
+          <p>
+            <strong>What reconciliation means:</strong> if actual state drifts (for example a pod is deleted), the
+            controller issues changes to close the gap.
+          </p>
+          <p>
+            <strong>Why Kubernetes is self-healing:</strong> desired replicas remain declared, so the system recreates
+            missing pods automatically.
+          </p>
+        </div>
+      ) : null}
 
       <ol className="explained-flow-steps">
         {selected.steps.map((step, index) => {
@@ -128,13 +158,21 @@ export function ExplainedFlowPanel({
 
       <div className="explained-live-state">
         <h3>Live State Signals (Observed)</h3>
-        <p>Deployment exists: {state?.deployment.exists ? "yes" : "no"}</p>
-        <p>
-          Replicas desired/ready: {state?.deployment.replicas ?? 0}/{state?.deployment.ready_replicas ?? 0}
-        </p>
-        <p>
-          Pod readiness: {readyPods}/{totalPods}
-        </p>
+        <div className="explained-metrics-grid">
+          <article className="explained-metric-card">
+            <h4>Desired Replicas</h4>
+            <strong>{desiredReplicas}</strong>
+          </article>
+          <article className="explained-metric-card">
+            <h4>Actual Running</h4>
+            <strong>{runningPods}</strong>
+          </article>
+          <article className="explained-metric-card">
+            <h4>Ready Pods</h4>
+            <strong>{readyPods}</strong>
+          </article>
+        </div>
+        <p>Pod objects observed: {totalPods}</p>
         <p>Service present: {state?.service.exists ? "yes" : "no"}</p>
         <p>Current version hint: {state?.config?.app_version ?? "unknown"}</p>
       </div>

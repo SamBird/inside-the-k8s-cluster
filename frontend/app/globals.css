@@ -321,6 +321,12 @@ button {
   max-width: 280px;
 }
 
+.explained-flow-trigger-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .explained-flow-summary {
   margin: 10px 0;
   padding: 10px;
@@ -338,6 +344,23 @@ button {
 }
 
 .explained-teaching-copy p {
+  margin: 6px 0;
+  font-size: 0.93rem;
+}
+
+.controller-explainer {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 2px solid #6d7f8d;
+  border-radius: 10px;
+  background: #fff8e8;
+}
+
+.controller-explainer h3 {
+  margin: 0 0 6px;
+}
+
+.controller-explainer p {
   margin: 6px 0;
   font-size: 0.93rem;
 }
@@ -412,6 +435,31 @@ button {
 .explained-live-state p {
   margin: 4px 0;
   font-size: 0.92rem;
+}
+
+.explained-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0 8px;
+}
+
+.explained-metric-card {
+  border: 1px solid #8099a9;
+  border-radius: 8px;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.explained-metric-card h4 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.explained-metric-card strong {
+  font-size: 1.5rem;
+  line-height: 1.2;
 }
 
 .cluster-block {
@@ -671,6 +719,10 @@ button {
   .explained-flow-controls select {
     min-width: 0;
     width: 100%;
+  }
+
+  .explained-metrics-grid {
+    grid-template-columns: 1fr;
   }
 
   .hero-header {

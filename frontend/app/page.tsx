@@ -208,6 +208,24 @@ export default function DashboardPage() {
     );
   };
 
+  const triggerControllerReconciliation = () => {
+    setExplainedScenario("controller-reconciliation");
+    setExplainedRun({
+      scenario: "controller-reconciliation",
+      status: "success",
+      actionLabel: "Controller reconciliation",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      message: "Teaching scenario selected. Delete a pod to demonstrate self-healing and convergence."
+    });
+    setTimeline((existing) =>
+      prependTimeline(
+        existing,
+        [newTimeline("info", "Controller reconciliation selected", "Delete a pod to show drift and automatic recovery")]
+      )
+    );
+  };
+
   const onGenerateTraffic = async () => {
     if (trafficRunning) {
       return;
@@ -282,7 +300,9 @@ export default function DashboardPage() {
             onDeploy={() => runAction("Deploy app", deployApp, { deployed: true }, "apply-yaml-journey")}
             onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 }, "scale-deployment")}
             onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 }, "scale-deployment")}
-            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined), undefined, "delete-pod")}
+            onDeletePod={() =>
+              runAction("Delete pod", () => deletePod(selectedPod || undefined), undefined, "controller-reconciliation")
+            }
             onBreakReadiness={() =>
               runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false }, "break-readiness")
             }
@@ -339,6 +359,7 @@ export default function DashboardPage() {
           state={state}
           onScenarioChange={setExplainedScenario}
           onTriggerApplyYamlJourney={triggerApplyYamlJourney}
+          onTriggerControllerReconciliation={triggerControllerReconciliation}
         />
 
         <div className="reveal-5">

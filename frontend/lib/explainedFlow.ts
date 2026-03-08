@@ -1,5 +1,6 @@
 export type ExplainedFlowScenario =
   | "apply-yaml-journey"
+  | "controller-reconciliation"
   | "deploy-app"
   | "scale-deployment"
   | "delete-pod"
@@ -75,6 +76,48 @@ export const explainedFlowScenarios: ExplainedFlowScenarioDefinition[] = [
         id: "yaml-8",
         title: "Service routes traffic once pods are Ready",
         detail: "Service endpoints include ready pods, so traffic flows only to pods that passed readiness."
+      }
+    ]
+  },
+  {
+    key: "controller-reconciliation",
+    label: "Controller reconciliation",
+    summary: "A pod is deleted, desired replicas stay the same, and controllers self-heal by creating a replacement pod until actual state matches desired state again.",
+    steps: [
+      {
+        id: "reconcile-1",
+        title: "Running Pod is deleted",
+        detail: "A pod deletion request is accepted by kube-apiserver and the pod begins termination."
+      },
+      {
+        id: "reconcile-2",
+        title: "Desired replicas remain unchanged",
+        detail: "Deployment/ReplicaSet desired replica count in desired state does not decrease."
+      },
+      {
+        id: "reconcile-3",
+        title: "Controller detects drift",
+        detail: "ReplicaSet controller sees fewer actual pods than desired replicas."
+      },
+      {
+        id: "reconcile-4",
+        title: "Replacement Pod is created",
+        detail: "Controller creates a new pod object to close the gap."
+      },
+      {
+        id: "reconcile-5",
+        title: "kube-scheduler places replacement",
+        detail: "New pod is assigned to a worker node."
+      },
+      {
+        id: "reconcile-6",
+        title: "Readiness gates Service traffic",
+        detail: "Service includes the replacement pod only when readiness is true."
+      },
+      {
+        id: "reconcile-7",
+        title: "System returns to desired count",
+        detail: "Actual running/ready pods converge back to desired replicas."
       }
     ]
   },
