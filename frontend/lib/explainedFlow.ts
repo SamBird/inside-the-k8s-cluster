@@ -1,4 +1,5 @@
 export type ExplainedFlowScenario =
+  | "apply-yaml-journey"
   | "deploy-app"
   | "scale-deployment"
   | "delete-pod"
@@ -30,6 +31,53 @@ export interface ExplainedFlowRun {
 }
 
 export const explainedFlowScenarios: ExplainedFlowScenarioDefinition[] = [
+  {
+    key: "apply-yaml-journey",
+    label: "Apply YAML journey",
+    summary: "Teaching walkthrough of what happens after submitting a Deployment: desired state is declared, then reconciliation makes actual state match.",
+    steps: [
+      {
+        id: "yaml-1",
+        title: "kube-apiserver receives and validates request",
+        detail: "A Deployment manifest is submitted and validated by the API server before being accepted."
+      },
+      {
+        id: "yaml-2",
+        title: "Desired state is stored",
+        detail: "Accepted Deployment spec is persisted in etcd as source-of-truth desired state."
+      },
+      {
+        id: "yaml-3",
+        title: "Deployment controller observes desired state",
+        detail: "Controller loop sees the new Deployment and starts reconciliation."
+      },
+      {
+        id: "yaml-4",
+        title: "ReplicaSet is created or updated",
+        detail: "Deployment controller creates or updates a ReplicaSet that matches pod template intent."
+      },
+      {
+        id: "yaml-5",
+        title: "Pods are created",
+        detail: "ReplicaSet controller creates Pod objects to meet desired replica count."
+      },
+      {
+        id: "yaml-6",
+        title: "kube-scheduler assigns Pods to nodes",
+        detail: "Pending pods are bound to worker nodes based on scheduling decisions."
+      },
+      {
+        id: "yaml-7",
+        title: "Pods move through Pending, Running, and Ready",
+        detail: "kubelet starts containers; readiness probes determine when pods are marked Ready."
+      },
+      {
+        id: "yaml-8",
+        title: "Service routes traffic once pods are Ready",
+        detail: "Service endpoints include ready pods, so traffic flows only to pods that passed readiness."
+      }
+    ]
+  },
   {
     key: "deploy-app",
     label: "Deploy app",
@@ -222,4 +270,3 @@ export function findExplainedFlowScenario(
 ): ExplainedFlowScenarioDefinition {
   return explainedFlowScenarios.find((item) => item.key === scenario) ?? explainedFlowScenarios[0];
 }
-

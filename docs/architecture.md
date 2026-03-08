@@ -39,7 +39,7 @@ The system has four layers:
 4. Frontend updates topology and timeline from each new snapshot.
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
 
-Control-plane component cards and explained-flow sequences in the UI are intentionally educational. They are inferred from action context plus cluster state snapshots, not direct process-level telemetry from control-plane binaries.
+Control-plane component cards and explained-flow sequences in the UI are intentionally educational. This includes the dedicated `Apply YAML journey` scenario. These flows are inferred from action context plus cluster state snapshots, not direct process-level telemetry from control-plane binaries.
 
 ## Kubernetes Resources
 

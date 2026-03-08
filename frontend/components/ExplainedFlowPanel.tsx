@@ -12,6 +12,7 @@ interface ExplainedFlowPanelProps {
   run: ExplainedFlowRun | null;
   state: ClusterState | null;
   onScenarioChange: (scenario: ExplainedFlowScenario) => void;
+  onTriggerApplyYamlJourney: () => void;
 }
 
 type StepState = "pending" | "active" | "done" | "error";
@@ -54,7 +55,13 @@ function runStatusLabel(run: ExplainedFlowRun | null): { tone: "neutral" | "ok" 
   return { tone: "bad", label: "Action failed" };
 }
 
-export function ExplainedFlowPanel({ scenario, run, state, onScenarioChange }: ExplainedFlowPanelProps) {
+export function ExplainedFlowPanel({
+  scenario,
+  run,
+  state,
+  onScenarioChange,
+  onTriggerApplyYamlJourney
+}: ExplainedFlowPanelProps) {
   const selected = findExplainedFlowScenario(scenario);
   const runForSelection = run?.scenario === scenario ? run : null;
   const status = runStatusLabel(runForSelection);
@@ -85,9 +92,24 @@ export function ExplainedFlowPanel({ scenario, run, state, onScenarioChange }: E
             </option>
           ))}
         </select>
+        <button type="button" className="action-button explained-flow-trigger" onClick={onTriggerApplyYamlJourney}>
+          Apply YAML journey
+        </button>
       </div>
 
       <p className="explained-flow-summary">{selected.summary}</p>
+
+      <div className="explained-teaching-copy">
+        <p>
+          <strong>Desired state:</strong> what is declared in Kubernetes objects (for example Deployment replicas and pod template).
+        </p>
+        <p>
+          <strong>Actual state:</strong> what is currently running in the cluster (actual pods, readiness, and service endpoints).
+        </p>
+        <p>
+          <strong>Reconciliation:</strong> control loops continuously compare desired vs actual and apply changes until they match.
+        </p>
+      </div>
 
       <ol className="explained-flow-steps">
         {selected.steps.map((step, index) => {

@@ -299,7 +299,7 @@ button {
 
 .explained-flow-controls {
   margin-top: 10px;
-  display: inline-grid;
+  display: grid;
   gap: 6px;
 }
 
@@ -317,12 +317,29 @@ button {
   background: #fff;
 }
 
+.explained-flow-trigger {
+  max-width: 280px;
+}
+
 .explained-flow-summary {
   margin: 10px 0;
   padding: 10px;
   border: 1px solid #b0c3cf;
   border-radius: 10px;
   background: #f3f7ff;
+}
+
+.explained-teaching-copy {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #9eb5c5;
+  background: #f5f9ff;
+}
+
+.explained-teaching-copy p {
+  margin: 6px 0;
+  font-size: 0.93rem;
 }
 
 .explained-flow-steps {

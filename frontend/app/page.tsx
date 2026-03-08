@@ -72,7 +72,7 @@ export default function DashboardPage() {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [explainedScenario, setExplainedScenario] = useState<ExplainedFlowScenario>("deploy-app");
+  const [explainedScenario, setExplainedScenario] = useState<ExplainedFlowScenario>("apply-yaml-journey");
   const [explainedRun, setExplainedRun] = useState<ExplainedFlowRun | null>(null);
   const [selectedPod, setSelectedPod] = useState<string>("");
   const [rolloutTag, setRolloutTag] = useState<string>("v2");
@@ -190,6 +190,24 @@ export default function DashboardPage() {
     }
   };
 
+  const triggerApplyYamlJourney = () => {
+    setExplainedScenario("apply-yaml-journey");
+    setExplainedRun({
+      scenario: "apply-yaml-journey",
+      status: "success",
+      actionLabel: "Apply YAML journey",
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      message: "Educational walkthrough selected. Sequence is conceptual and aligned to live state signals."
+    });
+    setTimeline((existing) =>
+      prependTimeline(
+        existing,
+        [newTimeline("info", "Apply YAML journey selected", "Using educational flow for 2–3 minute explanation")]
+      )
+    );
+  };
+
   const onGenerateTraffic = async () => {
     if (trafficRunning) {
       return;
@@ -261,7 +279,7 @@ export default function DashboardPage() {
             busyAction={busyAction}
             onSelectPod={setSelectedPod}
             onRolloutVersion={setRolloutTag}
-            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true }, "deploy-app")}
+            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true }, "apply-yaml-journey")}
             onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 }, "scale-deployment")}
             onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 }, "scale-deployment")}
             onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined), undefined, "delete-pod")}
@@ -320,6 +338,7 @@ export default function DashboardPage() {
           run={explainedRun}
           state={state}
           onScenarioChange={setExplainedScenario}
+          onTriggerApplyYamlJourney={triggerApplyYamlJourney}
         />
 
         <div className="reveal-5">
