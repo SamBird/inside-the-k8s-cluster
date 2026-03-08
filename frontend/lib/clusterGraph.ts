@@ -175,6 +175,19 @@ function sortPods(pods: PodState[]): PodState[] {
   });
 }
 
+function clampPodsForPresentation(pods: PodState[], maxPods: number): {
+  visiblePods: PodState[];
+  omittedCount: number;
+} {
+  if (pods.length <= maxPods) {
+    return { visiblePods: pods, omittedCount: 0 };
+  }
+  return {
+    visiblePods: pods.slice(pods.length - maxPods),
+    omittedCount: pods.length - maxPods
+  };
+}
+
 function createNode(
   id: string,
   x: number,
@@ -288,8 +301,11 @@ export function buildClusterGraph(state: ClusterState | null): {
   const serviceExists = state?.service.exists ?? false;
   const serviceIp = state?.service.cluster_ip ?? "n/a";
   const servicePorts = state?.service.ports.map((port) => `${port.port}/${port.protocol}`).join(", ") || "n/a";
-  const pods = sortPods(state?.pods ?? []);
-  const observedReplicaSets = Array.from(new Set(pods.map((pod) => podReplicaSetName(pod.name))));
+  const allPods = sortPods(state?.pods ?? []);
+  const podDisplay = clampPodsForPresentation(allPods, 8);
+  const pods = podDisplay.visiblePods;
+  const omittedPodCount = podDisplay.omittedCount;
+  const observedReplicaSets = Array.from(new Set(allPods.map((pod) => podReplicaSetName(pod.name))));
 
   nodes.push(
     createNode("dep", 420, 110, {
@@ -311,6 +327,8 @@ export function buildClusterGraph(state: ClusterState | null): {
       detail: "Observed from pod ownership naming; detailed RS watch is not currently exposed by backend.",
       metadata: [
         `observed sets: ${observedReplicaSets.length || 0}`,
+        `pod objects (all): ${allPods.length}`,
+        `pods rendered in graph: ${pods.length}${omittedPodCount > 0 ? ` (+${omittedPodCount} omitted)` : ""}`,
         ...(observedReplicaSets.length ? observedReplicaSets.map((name) => `- ${name}`) : ["- none observed"])
       ]
     }),
@@ -431,6 +449,20 @@ export function buildClusterGraph(state: ClusterState | null): {
         )
       );
     });
+  }
+
+  if (omittedPodCount > 0) {
+    const overflowY = workerYBase + workers.length * workerSpacing + 120;
+    nodes.push(
+      createNode("pod-overflow", 1110, overflowY, {
+        label: `Additional Pods\n+${omittedPodCount} omitted`,
+        category: "live-workload",
+        source: "live",
+        detail: "Graph intentionally caps pod nodes for projector readability. Full pod list is available in Workload Resources panel.",
+        metadata: [`total pods observed: ${allPods.length}`, `pods drawn in graph: ${pods.length}`]
+      })
+    );
+    edges.push(createEdge("rs-overflow", "rs", "pod-overflow", "more pods", "ownership", "live"));
   }
 
   return { nodes, edges };

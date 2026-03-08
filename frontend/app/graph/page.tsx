@@ -17,6 +17,7 @@ import { getState, subscribeToState } from "../../lib/api";
 import {
   buildClusterGraph,
   ClusterGraphEdgeData,
+  ClusterGraphEdgeKind,
   ClusterGraphNodeData
 } from "../../lib/clusterGraph";
 import { ClusterState, ConnectionState } from "../../lib/types";
@@ -28,10 +29,46 @@ function metadataForNode(node: Node<ClusterGraphNodeData> | undefined): string[]
   return node.data.metadata ?? [];
 }
 
+type GraphFocusMode = "overview" | "control-loop" | "traffic-readiness";
+
+const focusModeConfig: Record<
+  GraphFocusMode,
+  {
+    label: string;
+    description: string;
+    edgeKinds: ClusterGraphEdgeKind[];
+  }
+> = {
+  overview: {
+    label: "Overview",
+    description: "Balanced view of control-plane concepts and live resource relationships.",
+    edgeKinds: [
+      "conceptual-control",
+      "reconciliation",
+      "ownership",
+      "scheduling",
+      "placement",
+      "traffic-ready",
+      "traffic-blocked"
+    ]
+  },
+  "control-loop": {
+    label: "Control Loop",
+    description: "Focus on desired-state and reconciliation paths (de-emphasizes service traffic).",
+    edgeKinds: ["conceptual-control", "reconciliation", "ownership", "scheduling", "placement"]
+  },
+  "traffic-readiness": {
+    label: "Traffic + Readiness",
+    description: "Focus on service routing to ready/unready pods and node placement.",
+    edgeKinds: ["ownership", "placement", "traffic-ready", "traffic-blocked"]
+  }
+};
+
 export default function ClusterGraphPage() {
   const [state, setState] = useState<ClusterState | null>(null);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState<GraphFocusMode>("overview");
 
   useEffect(() => {
     let cancelled = false;
@@ -74,10 +111,34 @@ export default function ClusterGraphPage() {
   }, []);
 
   const graph = useMemo(() => buildClusterGraph(state), [state]);
+  const activeFocus = focusModeConfig[focusMode];
+
+  const filteredEdges = useMemo(() => {
+    const allowedKinds = new Set(activeFocus.edgeKinds);
+    return graph.edges.filter((edge) => {
+      const kind = edge.data?.kind;
+      return Boolean(kind && allowedKinds.has(kind as ClusterGraphEdgeKind));
+    });
+  }, [graph.edges, activeFocus.edgeKinds]);
+
+  const visibleNodeIds = useMemo(() => {
+    const visible = new Set<string>(["group-control", "group-desired", "group-workers"]);
+    for (const edge of filteredEdges) {
+      visible.add(edge.source);
+      visible.add(edge.target);
+    }
+    return visible;
+  }, [filteredEdges]);
+
+  useEffect(() => {
+    if (selectedNodeId && !visibleNodeIds.has(selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [selectedNodeId, visibleNodeIds]);
 
   const selectedNode = useMemo(
-    () => graph.nodes.find((node) => node.id === selectedNodeId),
-    [graph.nodes, selectedNodeId]
+    () => graph.nodes.find((node) => node.id === selectedNodeId && visibleNodeIds.has(node.id)),
+    [graph.nodes, selectedNodeId, visibleNodeIds]
   );
 
   const relatedNodeIds = useMemo(() => {
@@ -87,17 +148,17 @@ export default function ClusterGraphPage() {
     }
 
     related.add(selectedNodeId);
-    for (const edge of graph.edges) {
+    for (const edge of filteredEdges) {
       if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
         related.add(edge.source);
         related.add(edge.target);
       }
     }
     return related;
-  }, [graph.edges, selectedNodeId]);
+  }, [filteredEdges, selectedNodeId]);
 
   const displayNodes = useMemo(() => {
-    return graph.nodes.map((node) => {
+    return graph.nodes.filter((node) => visibleNodeIds.has(node.id)).map((node) => {
       const isSelected = node.id === selectedNodeId;
       const isRelated = relatedNodeIds.has(node.id);
       const shouldDim = Boolean(selectedNodeId) && !isRelated;
@@ -110,22 +171,23 @@ export default function ClusterGraphPage() {
         }
       } as Node<ClusterGraphNodeData>;
     });
-  }, [graph.nodes, relatedNodeIds, selectedNodeId]);
+  }, [graph.nodes, relatedNodeIds, selectedNodeId, visibleNodeIds]);
 
   const displayEdges = useMemo(() => {
-    return graph.edges.map((edge) => {
+    return filteredEdges.map((edge) => {
       const isRelated = selectedNodeId
         ? edge.source === selectedNodeId || edge.target === selectedNodeId
         : true;
       return {
         ...edge,
+        label: selectedNodeId && isRelated ? edge.label : undefined,
         style: {
           ...edge.style,
           opacity: isRelated ? 1 : 0.15
         }
       } as Edge<ClusterGraphEdgeData>;
     });
-  }, [graph.edges, selectedNodeId]);
+  }, [filteredEdges, selectedNodeId]);
 
   const onNodeClick = (_event: unknown, node: Node<ClusterGraphNodeData>) => {
     setSelectedNodeId(node.id);
@@ -150,6 +212,19 @@ export default function ClusterGraphPage() {
 
       <section className="panel graph-legend-panel reveal-2">
         <h2>Graph Legend</h2>
+        <div className="graph-focus-controls">
+          {(["overview", "control-loop", "traffic-readiness"] as GraphFocusMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`focus-chip${focusMode === mode ? " focus-chip-active" : ""}`}
+              onClick={() => setFocusMode(mode)}
+            >
+              {focusModeConfig[mode].label}
+            </button>
+          ))}
+        </div>
+        <p className="panel-subtitle graph-focus-note">{activeFocus.description}</p>
         <div className="graph-legend-grid">
           <span className="legend-chip legend-conceptual-node">Conceptual control-plane component</span>
           <span className="legend-chip legend-live-resource">Live desired-state resource</span>

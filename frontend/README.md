@@ -40,6 +40,11 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 - control-plane panel includes discovered live node context (control-plane node name, roles, selected labels) from Kubernetes API.
 - explained flow steps are inferred teaching sequences, combined with separate live state signals.
 - graph view labels conceptual control edges separately from live discovered workload/resource edges.
+- graph view includes presenter focus modes:
+  - `Overview`
+  - `Control Loop`
+  - `Traffic + Readiness`
+- graph view intentionally caps rendered pod nodes for readability; full pod list remains in live workload panels.
 - `Apply YAML journey` is a dedicated 2-3 minute teaching walkthrough of Deployment submission and reconciliation.
 - `Controller reconciliation` is tied to the delete-pod action to demonstrate self-healing and return to desired replicas.
 - Assumption: there is at least one demo pod to delete; if not, deploy/scale first.
