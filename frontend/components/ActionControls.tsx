@@ -44,7 +44,7 @@ export function ActionControls({
         <span className="muted">Safe, predictable operations against the demo namespace</span>
       </div>
       <p className="presenter-guidance">
-        {"Suggested live order: Apply YAML journey -> Controller reconciliation -> Break/Restore readiness -> Scale -> Rollout -> Generate traffic -> Reset"}
+        {"Suggested live order: Deploy -> Delete pod -> Break/Restore readiness -> Scale -> Rollout -> Generate traffic -> Reset (use Teaching View for conceptual scenario walkthroughs)."}
       </p>
 
       <div className="action-grid">

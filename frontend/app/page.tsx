@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ActionControls } from "../components/ActionControls";
-import { ControlPlaneOverview } from "../components/ControlPlaneOverview";
 import { DesiredActualPanel } from "../components/DesiredActualPanel";
-import { ExplainedFlowPanel } from "../components/ExplainedFlowPanel";
 import { EventTimeline } from "../components/EventTimeline";
+import { PageNav } from "../components/PageNav";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
 import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
@@ -33,7 +32,6 @@ import {
   TimelineEvent,
   TrafficEvent
 } from "../lib/types";
-import { ExplainedFlowRun, ExplainedFlowScenario, findExplainedFlowScenario } from "../lib/explainedFlow";
 
 const trafficTargetLabel = "Backend proxy -> /api/traffic/info -> service/demo-app";
 
@@ -73,8 +71,6 @@ export default function DashboardPage() {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [explainedScenario, setExplainedScenario] = useState<ExplainedFlowScenario>("apply-yaml-journey");
-  const [explainedRun, setExplainedRun] = useState<ExplainedFlowRun | null>(null);
   const [selectedPod, setSelectedPod] = useState<string>("");
   const [rolloutTag, setRolloutTag] = useState<string>("v2");
   const [trafficCount, setTrafficCount] = useState<number>(12);
@@ -141,19 +137,9 @@ export default function DashboardPage() {
   const runAction = async (
     actionLabel: string,
     request: () => Promise<ActionResponse>,
-    desiredPatch?: Partial<DesiredState>,
-    explainedFlowScenario?: ExplainedFlowScenario
+    desiredPatch?: Partial<DesiredState>
   ): Promise<void> => {
     setBusyAction(actionLabel);
-    if (explainedFlowScenario) {
-      setExplainedScenario(explainedFlowScenario);
-      setExplainedRun({
-        scenario: explainedFlowScenario,
-        status: "running",
-        actionLabel,
-        startedAt: new Date().toISOString()
-      });
-    }
     try {
       const result = await request();
       setState(result.state);
@@ -161,50 +147,14 @@ export default function DashboardPage() {
       if (desiredPatch) {
         setDesired((previous) => ({ ...previous, ...desiredPatch }));
       }
-      if (explainedFlowScenario) {
-        setExplainedRun({
-          scenario: explainedFlowScenario,
-          status: "success",
-          actionLabel,
-          startedAt: new Date().toISOString(),
-          finishedAt: new Date().toISOString(),
-          message: result.message
-        });
-      }
       setTimeline((existing) =>
         prependTimeline(existing, [newTimeline("success", actionLabel, result.message)])
       );
     } catch (error) {
-      if (explainedFlowScenario) {
-        setExplainedRun({
-          scenario: explainedFlowScenario,
-          status: "error",
-          actionLabel,
-          startedAt: new Date().toISOString(),
-          finishedAt: new Date().toISOString(),
-          message: String(error)
-        });
-      }
       setTimeline((existing) => prependTimeline(existing, [newTimeline("error", `${actionLabel} failed`, String(error))]));
     } finally {
       setBusyAction(null);
     }
-  };
-
-  const onExplainedScenarioChange = (nextScenario: ExplainedFlowScenario) => {
-    setExplainedScenario(nextScenario);
-    const next = findExplainedFlowScenario(nextScenario);
-    setExplainedRun({
-      scenario: nextScenario,
-      status: "success",
-      actionLabel: next.label,
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      message: "Educational scenario selected. This panel explains inferred control-plane flow, paired with live state."
-    });
-    setTimeline((existing) =>
-      prependTimeline(existing, [newTimeline("info", `${next.label} selected`, "Updated explained-flow panel scenario")])
-    );
   };
 
   const onGenerateTraffic = async () => {
@@ -267,6 +217,7 @@ export default function DashboardPage() {
           <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
         </div>
       </header>
+      <PageNav current="dashboard" />
 
       <section className="dashboard-grid">
         <div className="reveal-2">
@@ -277,17 +228,15 @@ export default function DashboardPage() {
             busyAction={busyAction}
             onSelectPod={setSelectedPod}
             onRolloutVersion={setRolloutTag}
-            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true }, "apply-yaml-journey")}
-            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 }, "scale-deployment")}
-            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 }, "scale-deployment")}
-            onDeletePod={() =>
-              runAction("Delete pod", () => deletePod(selectedPod || undefined), undefined, "controller-reconciliation")
-            }
+            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
+            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
+            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
+            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
             onBreakReadiness={() =>
-              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false }, "break-readiness")
+              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false })
             }
             onRestoreReadiness={() =>
-              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true }, "break-readiness")
+              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true })
             }
             onRollout={() => {
               const tag = rolloutTag.trim();
@@ -315,30 +264,17 @@ export default function DashboardPage() {
                     throw error;
                   }
                 },
-                { deployed: true, version: tag },
-                "rollout-new-version"
+                { deployed: true, version: tag }
               );
             }}
             onGenerateTraffic={onGenerateTraffic}
-            onReset={() => {
-              setExplainedRun(null);
-              runAction("Reset demo", resetDemo, defaultDesired);
-            }}
+            onReset={() => runAction("Reset demo", resetDemo, defaultDesired)}
           />
         </div>
 
         <div className="reveal-4">
           <DesiredActualPanel desired={desired} actual={state} />
         </div>
-
-        <ControlPlaneOverview state={state} />
-
-        <ExplainedFlowPanel
-          scenario={explainedScenario}
-          run={explainedRun}
-          state={state}
-          onScenarioChange={onExplainedScenarioChange}
-        />
 
         <div className="reveal-5">
           <TopologyView state={state} />

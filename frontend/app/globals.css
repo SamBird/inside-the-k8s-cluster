@@ -49,6 +49,31 @@ button {
   padding: 24px;
 }
 
+.page-nav {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.nav-link-active {
+  background: #dcf7e8;
+  border-color: #1f9d6a;
+}
+
 .hero-header {
   display: flex;
   gap: 18px;

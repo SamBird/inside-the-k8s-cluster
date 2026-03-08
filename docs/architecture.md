@@ -26,11 +26,11 @@ The system has four layers:
 - node discovery metadata for talk context (control-plane detection from node role labels + selected node labels)
 
 4. Presentation layer (`frontend`):
-- Next.js dashboard
-- control-plane overview + worker-node topology + workload resource views
+- Next.js split-view dashboard:
+  - `/` live demo controls + live state (desired/actual, topology, resources, traffic, timeline)
+  - `/teaching` conceptual control-plane overview + explained-flow teaching panel
 - explained-flow sequence panel for `Apply YAML journey`, `Controller reconciliation`, deploy/scale/readiness/rollout actions
-- state drift, timeline, traffic response views
-- operator action buttons for demo flow
+- operator action buttons for demo flow (live demo view)
 
 ## Data Flow
 

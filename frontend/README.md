@@ -4,6 +4,9 @@ Projector-friendly Next.js + TypeScript dashboard for the Kubernetes live demo.
 
 ## Features
 
+- split views to reduce presenter scrolling:
+  - `/`: live demo control room (actions + live state panels)
+  - `/teaching`: conceptual teaching panels (control-plane overview + explained flow)
 - control-plane overview (kube-apiserver, etcd, kube-scheduler, kube-controller-manager)
 - explained control-plane flow panel for core demo actions, including `Apply YAML journey` and `Controller reconciliation`
 - worker-node topology view (node readiness and pod placement)
@@ -30,6 +33,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ## Notes
 
 - `NEXT_PUBLIC_BACKEND_URL` points to FastAPI backend.
+- top navigation switches between `Live Demo` (`/`) and `Teaching View` (`/teaching`).
 - control-plane cards are explanatory teaching content, not per-component telemetry.
 - control-plane panel includes discovered live node context (control-plane node name, roles, selected labels) from Kubernetes API.
 - explained flow steps are inferred teaching sequences, combined with separate live state signals.
