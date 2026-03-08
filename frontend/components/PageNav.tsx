@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 interface PageNavProps {
-  current: "dashboard" | "teaching";
+  current: "dashboard" | "teaching" | "graph";
 }
 
 function navClass(active: boolean): string {
@@ -16,6 +16,9 @@ export function PageNav({ current }: PageNavProps) {
       </Link>
       <Link href="/teaching" className={navClass(current === "teaching")}>
         Teaching View
+      </Link>
+      <Link href="/graph" className={navClass(current === "graph")}>
+        Graph View
       </Link>
     </nav>
   );

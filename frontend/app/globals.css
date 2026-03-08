@@ -827,6 +827,103 @@ button {
   overflow: auto;
 }
 
+.graph-legend-panel {
+  margin-top: 14px;
+}
+
+.graph-legend-grid {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #7f96a5;
+  padding: 3px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.legend-conceptual-node {
+  background: #fff6de;
+  border-style: dashed;
+  border-color: #915f00;
+}
+
+.legend-live-resource {
+  background: #f2ecff;
+  border-color: #5f4a91;
+}
+
+.legend-live-node {
+  background: #e8f7ef;
+  border-color: #2f8e63;
+}
+
+.legend-live-workload {
+  background: #eef7ff;
+  border-color: #2d6f95;
+}
+
+.legend-conceptual-edge {
+  background: #fff5dc;
+  border-style: dashed;
+  border-color: #d48a00;
+}
+
+.legend-live-traffic {
+  background: #e7f8ee;
+  border-color: #168b5f;
+}
+
+.legend-live-blocked {
+  background: #ffeae6;
+  border-style: dashed;
+  border-color: #c03a2b;
+}
+
+.graph-layout {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1.9fr 1fr;
+  gap: 12px;
+  min-height: 68vh;
+}
+
+.graph-canvas-panel,
+.graph-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.graph-canvas {
+  min-height: 68vh;
+  border: 1px solid #9bb3c1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f8fbff, #f0f6fc);
+}
+
+.graph-canvas .react-flow__attribution {
+  display: none;
+}
+
+.graph-side-panel p {
+  margin: 0;
+}
+
+.graph-meta-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
 @keyframes reveal {
   from {
     opacity: 0;
@@ -903,5 +1000,13 @@ button {
 
   .hero-header {
     flex-direction: column;
+  }
+
+  .graph-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-canvas {
+    min-height: 62vh;
   }
 }
