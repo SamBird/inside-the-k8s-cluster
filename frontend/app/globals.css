@@ -120,6 +120,13 @@ button {
   background: #dcf7e8;
 }
 
+.connection-pill-busy {
+  background: #fff2d6;
+  border-color: #d48a00;
+  color: #7f5300;
+  gap: 8px;
+}
+
 .connection-connecting {
   background: #fff6dc;
 }

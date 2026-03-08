@@ -139,6 +139,7 @@ export default function DashboardPage() {
     request: () => Promise<ActionResponse>,
     desiredPatch?: Partial<DesiredState>
   ): Promise<void> => {
+    const actionStartedAtMs = Date.now();
     setBusyAction(actionLabel);
     try {
       const result = await request();
@@ -153,6 +154,11 @@ export default function DashboardPage() {
     } catch (error) {
       setTimeline((existing) => prependTimeline(existing, [newTimeline("error", `${actionLabel} failed`, String(error))]));
     } finally {
+      const minimumVisibleMs = 700;
+      const elapsedMs = Date.now() - actionStartedAtMs;
+      if (elapsedMs < minimumVisibleMs) {
+        await delay(minimumVisibleMs - elapsedMs);
+      }
       setBusyAction(null);
     }
   };
@@ -214,6 +220,12 @@ export default function DashboardPage() {
         </div>
         <div className="hero-status">
           <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
+          {busyAction ? (
+            <span className="connection-pill connection-pill-busy" role="status" aria-live="polite">
+              <span className="inline-spinner" aria-hidden="true" />
+              <span>Reconciling: {busyAction}</span>
+            </span>
+          ) : null}
           <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
         </div>
       </header>
