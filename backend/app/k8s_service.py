@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from datetime import datetime, timezone
 import json
 import time
@@ -88,14 +89,26 @@ class KubernetesService:
         self._ensure_clients()
         assert self.core is not None
         try:
+            service = self.core.read_namespaced_service(self.cfg.service_name, self.cfg.namespace)
+        except ApiException as exc:
+            if exc.status == 404:
+                raise BackendError(f"Service '{self.cfg.service_name}' not found in namespace '{self.cfg.namespace}'")
+            raise
+
+        ports = service.spec.ports or []
+        if not ports:
+            raise BackendError(f"Service '{self.cfg.service_name}' has no ports configured")
+        proxy_name = f"{self.cfg.service_name}:{ports[0].port}"
+
+        try:
             raw = self.core.connect_get_namespaced_service_proxy_with_path(
-                name=self.cfg.service_name,
+                name=proxy_name,
                 namespace=self.cfg.namespace,
                 path="info",
             )
         except ApiException as exc:
             if exc.status == 404:
-                raise BackendError(f"Service '{self.cfg.service_name}' not found in namespace '{self.cfg.namespace}'")
+                raise BackendError(f"Service proxy '{proxy_name}' not found in namespace '{self.cfg.namespace}'")
             if exc.status == 503:
                 raise BackendError("Demo service has no ready endpoints yet")
             raise
@@ -107,7 +120,11 @@ class KubernetesService:
             try:
                 parsed = json.loads(raw)
             except json.JSONDecodeError as exc:
-                raise BackendError(f"Demo service returned invalid JSON: {exc}") from exc
+                # Kubernetes proxy responses may arrive as Python-literal dict strings.
+                try:
+                    parsed = ast.literal_eval(raw)
+                except (ValueError, SyntaxError) as parse_exc:
+                    raise BackendError(f"Demo service returned invalid JSON: {exc}") from parse_exc
         elif isinstance(raw, dict):
             parsed = raw
         else:

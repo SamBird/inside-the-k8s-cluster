@@ -7,7 +7,7 @@ NAMESPACE ?= inside-k8s-demo
 VERSION ?= v1
 NEW_VERSION ?= v2
 
-.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop backend-install backend-run frontend-install frontend-run
+.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop golden-reset rehearsal-check backend-install backend-run frontend-install frontend-run
 
 help:
 	@echo "Targets:"
@@ -29,6 +29,8 @@ help:
 	@echo "  make demo-all-down           One-command full teardown for local demo stack"
 	@echo "                               (set STOP_COLIMA=1 to also stop colima)"
 	@echo "  make demo-stop               Stop local backend/frontend processes started by demo-all"
+	@echo "  make golden-reset            Return cluster/demo-app to presentation baseline (v1, replicas=1, readiness healthy)"
+	@echo "  make rehearsal-check         Run pre-talk readiness checks for cluster/backend/frontend/traffic/scenarios"
 	@echo "  make backend-install         Create backend venv and install requirements"
 	@echo "  make backend-run             Run backend API on :8000"
 	@echo "  make frontend-install        Install frontend dependencies"
@@ -87,6 +89,12 @@ demo-all-down:
 
 demo-stop:
 	@./scripts/demo-stop.sh
+
+golden-reset:
+	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) ./scripts/golden-reset.sh
+
+rehearsal-check:
+	@KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) ./scripts/rehearsal-check.sh
 
 backend-install:
 	@cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt

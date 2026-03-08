@@ -75,8 +75,21 @@ start_backend_if_needed() {
   step "Ensuring backend service is running"
 
   if wait_for_http "${BACKEND_URL}/healthz" 2 1; then
-    ok "Backend already healthy at ${BACKEND_URL}/healthz"
-    return 0
+    local traffic_status
+    traffic_status="$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/traffic/info" || true)"
+    if [[ "$traffic_status" == "404" ]]; then
+      warn "Backend is healthy but missing /api/traffic/info (likely stale process)."
+      if ! pid_is_running "$BACKEND_PID_FILE"; then
+        fail "Backend appears outdated and is not managed by demo-all. Restart backend and rerun."
+      fi
+      warn "Restarting managed backend process to load latest routes."
+      kill "$(cat "$BACKEND_PID_FILE")" >/dev/null 2>&1 || true
+      rm -f "$BACKEND_PID_FILE"
+      sleep 1
+    else
+      ok "Backend already healthy at ${BACKEND_URL}/healthz"
+      return 0
+    fi
   fi
 
   [[ -x "${ROOT_DIR}/backend/.venv/bin/uvicorn" ]] || fail "backend virtualenv is missing. Run 'make backend-install'."
