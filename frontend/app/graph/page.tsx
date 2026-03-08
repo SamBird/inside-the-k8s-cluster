@@ -40,14 +40,12 @@ const focusModeConfig: Record<
 > = {
   overview: {
     label: "Overview",
-    description: "Balanced view of control-plane concepts and live resource relationships.",
+    description: "Clean default view of control-plane, ownership, and placement relationships.",
     edgeKinds: [
       "conceptual-control",
       "reconciliation",
       "ownership",
-      "placement",
-      "traffic-ready",
-      "traffic-blocked"
+      "placement"
     ]
   },
   "control-loop": {
@@ -64,6 +62,13 @@ const focusModeConfig: Record<
 
 export default function ClusterGraphPage() {
   const [state, setState] = useState<ClusterState | null>(null);
+  const [graph, setGraph] = useState<{
+    nodes: Node<ClusterGraphNodeData>[];
+    edges: Edge<ClusterGraphEdgeData>[];
+  }>({
+    nodes: [],
+    edges: []
+  });
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState<GraphFocusMode>("overview");
@@ -108,7 +113,30 @@ export default function ClusterGraphPage() {
     };
   }, []);
 
-  const graph = useMemo(() => buildClusterGraph(state), [state]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyLayout = async () => {
+      try {
+        const nextGraph = await buildClusterGraph(state);
+        if (cancelled) {
+          return;
+        }
+        setGraph(nextGraph);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        setGraph({ nodes: [], edges: [] });
+      }
+    };
+
+    applyLayout();
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
+
   const activeFocus = focusModeConfig[focusMode];
 
   const filteredEdges = useMemo(() => {
@@ -243,17 +271,18 @@ export default function ClusterGraphPage() {
           <h2>Cluster Relationship Graph</h2>
           <div className="graph-canvas">
             <ReactFlow
+              key={`${displayNodes.length}-${displayEdges.length}-${focusMode}`}
               nodes={displayNodes}
               edges={displayEdges}
               fitView
-              fitViewOptions={{ padding: 0.12, minZoom: 0.3, maxZoom: 1.4 }}
+              fitViewOptions={{ padding: 0.18, minZoom: 0.25, maxZoom: 1 }}
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable
               onNodeClick={onNodeClick}
               onPaneClick={() => setSelectedNodeId(null)}
               minZoom={0.35}
-              maxZoom={1.5}
+              maxZoom={1.2}
             >
               <Background color="#d3dee8" gap={20} />
               <Controls showInteractive={false} />

@@ -1,7 +1,10 @@
-import { MarkerType } from "@xyflow/react";
+import ELK from "elkjs/lib/elk.bundled.js";
+import { MarkerType, Position } from "@xyflow/react";
 import type { Edge, Node } from "@xyflow/react";
 
 import { ClusterState, NodeState, PodState } from "./types";
+
+const elk = new ELK();
 
 export type ClusterGraphNodeCategory =
   | "group"
@@ -35,23 +38,70 @@ export interface ClusterGraphEdgeData {
   detail?: string;
 }
 
+type ClusterGraphLane = "control" | "desired" | "workers" | "workloads";
+
+const LANE_X: Record<ClusterGraphLane, number> = {
+  control: 20,
+  desired: 300,
+  workers: 560,
+  workloads: 840
+};
+
+const LANE_MIN_Y: Record<ClusterGraphLane, number> = {
+  control: 90,
+  desired: 100,
+  workers: 120,
+  workloads: 100
+};
+
+const LANE_GAP: Record<ClusterGraphLane, number> = {
+  control: 92,
+  desired: 108,
+  workers: 120,
+  workloads: 82
+};
+
+interface NodeDimensions {
+  width: number;
+  height: number;
+}
+
+function nodeDimensions(category: ClusterGraphNodeCategory): NodeDimensions {
+  if (category === "group") {
+    return { width: 240, height: 40 };
+  }
+  if (category === "conceptual") {
+    return { width: 210, height: 64 };
+  }
+  if (category === "live-node") {
+    return { width: 230, height: 68 };
+  }
+  if (category === "live-workload") {
+    return { width: 210, height: 70 };
+  }
+  return { width: 220, height: 70 };
+}
+
 function nodeStyle(category: ClusterGraphNodeCategory): Node["style"] {
+  const dims = nodeDimensions(category);
+
   if (category === "group") {
     return {
-      width: 240,
+      width: dims.width,
       border: "none",
       background: "transparent",
       color: "#1b3a4b",
       fontWeight: 800,
       fontSize: "0.95rem",
       boxShadow: "none",
-      padding: 0
+      padding: 0,
+      pointerEvents: "none"
     };
   }
 
   if (category === "conceptual") {
     return {
-      width: 210,
+      width: dims.width,
       border: "2px dashed #915f00",
       borderRadius: 12,
       background: "#fff6de",
@@ -66,7 +116,7 @@ function nodeStyle(category: ClusterGraphNodeCategory): Node["style"] {
 
   if (category === "live-node") {
     return {
-      width: 230,
+      width: dims.width,
       border: "2px solid #2f8e63",
       borderRadius: 12,
       background: "#e8f7ef",
@@ -80,7 +130,7 @@ function nodeStyle(category: ClusterGraphNodeCategory): Node["style"] {
 
   if (category === "live-workload") {
     return {
-      width: 210,
+      width: dims.width,
       border: "2px solid #2d6f95",
       borderRadius: 12,
       background: "#eef7ff",
@@ -93,7 +143,7 @@ function nodeStyle(category: ClusterGraphNodeCategory): Node["style"] {
   }
 
   return {
-    width: 220,
+    width: dims.width,
     border: "2px solid #5f4a91",
     borderRadius: 12,
     background: "#f2ecff",
@@ -115,24 +165,27 @@ function edgeStyle(kind: ClusterGraphEdgeKind): {
     return {
       style: { stroke: "#915f00", strokeDasharray: "6 4", strokeWidth: 2 },
       markerColor: "#915f00",
-      baseOffset: 24
+      baseOffset: 22
     };
   }
+
   if (kind === "reconciliation") {
     return {
       style: { stroke: "#d48a00", strokeDasharray: "6 4", strokeWidth: 2 },
       markerColor: "#d48a00",
       animated: true,
-      baseOffset: 38
+      baseOffset: 34
     };
   }
+
   if (kind === "scheduling") {
     return {
       style: { stroke: "#7d6f00", strokeDasharray: "5 4", strokeWidth: 2 },
       markerColor: "#7d6f00",
-      baseOffset: 44
+      baseOffset: 40
     };
   }
+
   if (kind === "placement") {
     return {
       style: { stroke: "#1f9d6a", strokeWidth: 2 },
@@ -140,26 +193,28 @@ function edgeStyle(kind: ClusterGraphEdgeKind): {
       baseOffset: 12
     };
   }
+
   if (kind === "traffic-ready") {
     return {
       style: { stroke: "#168b5f", strokeWidth: 2.4 },
       markerColor: "#168b5f",
       animated: true,
-      baseOffset: 56
+      baseOffset: 52
     };
   }
+
   if (kind === "traffic-blocked") {
     return {
       style: { stroke: "#c03a2b", strokeDasharray: "5 4", strokeWidth: 2 },
       markerColor: "#c03a2b",
-      baseOffset: 60
+      baseOffset: 56
     };
   }
 
   return {
     style: { stroke: "#2d6f95", strokeWidth: 2 },
     markerColor: "#2d6f95",
-    baseOffset: 28
+    baseOffset: 24
   };
 }
 
@@ -169,7 +224,39 @@ function edgeOffsetForId(id: string, baseOffset: number): number {
     hash = (hash << 5) - hash + character.charCodeAt(0);
     hash |= 0;
   }
-  return baseOffset + (Math.abs(hash) % 4) * 9;
+  return baseOffset + (Math.abs(hash) % 4) * 8;
+}
+
+function nodeLane(id: string): ClusterGraphLane {
+  if (id.startsWith("cp-")) {
+    return "control";
+  }
+  if (id === "dep" || id === "rs" || id === "svc") {
+    return "desired";
+  }
+  if (id.startsWith("worker:")) {
+    return "workers";
+  }
+  return "workloads";
+}
+
+function laneOrder(id: string): number {
+  const fixedOrder: Record<string, number> = {
+    "cp-apiserver": 1,
+    "cp-etcd": 2,
+    "cp-controller-manager": 3,
+    "cp-scheduler": 4,
+    dep: 1,
+    rs: 2,
+    svc: 3,
+    "pod-overflow": 999
+  };
+
+  if (fixedOrder[id] !== undefined) {
+    return fixedOrder[id];
+  }
+
+  return 100;
 }
 
 function podReplicaSetName(podName: string): string {
@@ -203,25 +290,38 @@ function clampPodsForPresentation(pods: PodState[], maxPods: number): {
   if (pods.length <= maxPods) {
     return { visiblePods: pods, omittedCount: 0 };
   }
+
   return {
     visiblePods: pods.slice(pods.length - maxPods),
     omittedCount: pods.length - maxPods
   };
 }
 
-function createNode(
-  id: string,
-  x: number,
-  y: number,
-  data: ClusterGraphNodeData
-): Node<ClusterGraphNodeData> {
+function createNode(id: string, data: ClusterGraphNodeData): Node<ClusterGraphNodeData> {
   return {
     id,
-    position: { x, y },
+    position: { x: 0, y: 0 },
     data,
     draggable: false,
     selectable: true,
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
     style: nodeStyle(data.category)
+  };
+}
+
+function createGroupNode(id: string, label: string, x: number): Node<ClusterGraphNodeData> {
+  return {
+    id,
+    position: { x, y: 20 },
+    data: {
+      label,
+      category: "group",
+      source: "conceptual"
+    },
+    draggable: false,
+    selectable: false,
+    style: nodeStyle("group")
   };
 }
 
@@ -234,6 +334,7 @@ function createEdge(
   sourceType: "conceptual" | "live"
 ): Edge<ClusterGraphEdgeData> {
   const styled = edgeStyle(kind);
+
   return {
     id,
     source,
@@ -242,7 +343,7 @@ function createEdge(
     type: "smoothstep",
     pathOptions: {
       offset: edgeOffsetForId(id, styled.baseOffset),
-      borderRadius: 18
+      borderRadius: 16
     },
     animated: styled.animated,
     style: styled.style,
@@ -257,53 +358,33 @@ function createEdge(
   } as Edge<ClusterGraphEdgeData>;
 }
 
-export function buildClusterGraph(state: ClusterState | null): {
+interface ClusterGraphShape {
   nodes: Node<ClusterGraphNodeData>[];
   edges: Edge<ClusterGraphEdgeData>[];
-} {
+}
+
+function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
   const nodes: Node<ClusterGraphNodeData>[] = [];
   const edges: Edge<ClusterGraphEdgeData>[] = [];
 
-  nodes.push(
-    createNode("group-control", 20, 20, {
-      label: "Control Plane (Conceptual Teaching Layer)",
-      category: "group",
-      source: "conceptual"
-    }),
-    createNode("group-desired", 280, 20, {
-      label: "Desired-State Resources (Live Objects)",
-      category: "group",
-      source: "live"
-    }),
-    createNode("group-workers", 560, 20, {
-      label: "Worker Nodes + Running Workloads (Live Objects)",
-      category: "group",
-      source: "live"
-    })
-  );
-
-  const conceptualNodes: Array<{ id: string; y: number; label: string; detail: string }> = [
+  const conceptualNodes: Array<{ id: string; label: string; detail: string }> = [
     {
       id: "cp-apiserver",
-      y: 90,
       label: "kube-apiserver",
       detail: "Validates requests and persists object changes."
     },
     {
       id: "cp-etcd",
-      y: 220,
       label: "etcd",
       detail: "Stores desired and current cluster object state."
     },
     {
       id: "cp-controller-manager",
-      y: 350,
       label: "kube-controller-manager",
       detail: "Runs reconciliation loops for Deployment/ReplicaSet behavior."
     },
     {
       id: "cp-scheduler",
-      y: 480,
       label: "kube-scheduler",
       detail: "Assigns pending Pods to worker nodes."
     }
@@ -311,7 +392,7 @@ export function buildClusterGraph(state: ClusterState | null): {
 
   for (const entry of conceptualNodes) {
     nodes.push(
-      createNode(entry.id, 20, entry.y, {
+      createNode(entry.id, {
         label: entry.label,
         category: "conceptual",
         source: "conceptual",
@@ -334,7 +415,7 @@ export function buildClusterGraph(state: ClusterState | null): {
   const observedReplicaSets = Array.from(new Set(allPods.map((pod) => podReplicaSetName(pod.name))));
 
   nodes.push(
-    createNode("dep", 300, 110, {
+    createNode("dep", {
       label: `Deployment\n${state?.deployment.name ?? "demo-app"}`,
       category: "live-resource",
       source: "live",
@@ -346,7 +427,7 @@ export function buildClusterGraph(state: ClusterState | null): {
         `available replicas: ${availableReplicas}`
       ]
     }),
-    createNode("rs", 300, 290, {
+    createNode("rs", {
       label: "ReplicaSet (live)",
       category: "live-resource",
       source: "live",
@@ -358,7 +439,7 @@ export function buildClusterGraph(state: ClusterState | null): {
         ...(observedReplicaSets.length ? observedReplicaSets.map((name) => `- ${name}`) : ["- none observed"])
       ]
     }),
-    createNode("svc", 300, 470, {
+    createNode("svc", {
       label: `Service\n${state?.service.name ?? "demo-app"}`,
       category: "live-resource",
       source: "live",
@@ -388,16 +469,13 @@ export function buildClusterGraph(state: ClusterState | null): {
         } as NodeState
       ];
 
-  const workerYBase = 120;
-  const workerSpacing = 160;
-  const workerNodeY = new Map<string, number>();
-  for (let index = 0; index < workers.length; index += 1) {
-    const worker = workers[index];
-    const y = workerYBase + index * workerSpacing;
+  const scheduledWorkerNodes = new Set<string>();
+  for (const worker of workers) {
     const roles = (worker.roles ?? [worker.role]).join(", ");
-    workerNodeY.set(worker.name, y);
+    const workerNodeId = `worker:${worker.name}`;
+
     nodes.push(
-      createNode(`worker:${worker.name}`, 560, y, {
+      createNode(workerNodeId, {
         label: `Worker\n${worker.name}`,
         category: "live-node",
         source: "live",
@@ -405,28 +483,33 @@ export function buildClusterGraph(state: ClusterState | null): {
         metadata: [`ready: ${worker.ready}`, `roles: ${roles}`, `kubelet: ${worker.kubelet_version ?? "unknown"}`]
       })
     );
-  }
 
-  const podsByNode = new Map<string, PodState[]>();
-  for (const pod of pods) {
-    const nodeName = pod.node_name ?? "unscheduled";
-    if (!podsByNode.has(nodeName)) {
-      podsByNode.set(nodeName, []);
+    if (!scheduledWorkerNodes.has(workerNodeId)) {
+      edges.push(
+        createEdge(
+          `sched-node-${worker.name}`,
+          "cp-scheduler",
+          workerNodeId,
+          "assign pending pods to node",
+          "scheduling",
+          "conceptual"
+        )
+      );
+      scheduledWorkerNodes.add(workerNodeId);
     }
-    podsByNode.get(nodeName)?.push(pod);
   }
 
-  const scheduledWorkerNodes = new Set<string>();
-  for (const [nodeName, nodePods] of podsByNode.entries()) {
-    let anchorNodeId = `worker:${nodeName}`;
-    let anchorY = workerNodeY.get(nodeName);
+  const knownWorkers = new Set(workers.map((worker) => worker.name));
+  for (const pod of pods) {
+    const podId = `pod:${pod.name}`;
+    const nodeName = pod.node_name ?? "unscheduled";
+    const workerNodeId = `worker:${nodeName}`;
+    const readiness = pod.ready ? "Ready" : "Not Ready";
 
-    if (!anchorY) {
-      anchorY = workerYBase + workers.length * workerSpacing;
-      workerNodeY.set(nodeName, anchorY);
-      anchorNodeId = `worker:${nodeName}`;
+    if (!knownWorkers.has(nodeName)) {
+      knownWorkers.add(nodeName);
       nodes.push(
-        createNode(anchorNodeId, 560, anchorY, {
+        createNode(workerNodeId, {
           label: `Worker\n${nodeName}`,
           category: "live-node",
           source: "live",
@@ -434,60 +517,51 @@ export function buildClusterGraph(state: ClusterState | null): {
           metadata: ["ready: unknown", "roles: unknown"]
         })
       );
-    }
 
-    if (!scheduledWorkerNodes.has(anchorNodeId)) {
       edges.push(
         createEdge(
           `sched-node-${nodeName}`,
           "cp-scheduler",
-          anchorNodeId,
+          workerNodeId,
           "assign pending pods to node",
           "scheduling",
           "conceptual"
         )
       );
-      scheduledWorkerNodes.add(anchorNodeId);
     }
 
-    nodePods.forEach((pod, podIndex) => {
-      const podId = `pod:${pod.name}`;
-      const podY = anchorY + podIndex * 78;
-      const readiness = pod.ready ? "Ready" : "Not Ready";
-      nodes.push(
-        createNode(podId, 820, podY, {
-          label: `Pod\n${pod.name}`,
-          category: "live-workload",
-          source: "live",
-          detail: "Live discovered workload state.",
-          metadata: [
-            `phase: ${pod.phase ?? "unknown"}`,
-            `readiness: ${readiness}`,
-            `image: ${pod.image ?? "unknown"}`,
-            `restarts: ${pod.restart_count}`
-          ]
-        })
-      );
+    nodes.push(
+      createNode(podId, {
+        label: `Pod\n${pod.name}`,
+        category: "live-workload",
+        source: "live",
+        detail: "Live discovered workload state.",
+        metadata: [
+          `phase: ${pod.phase ?? "unknown"}`,
+          `readiness: ${readiness}`,
+          `image: ${pod.image ?? "unknown"}`,
+          `restarts: ${pod.restart_count}`
+        ]
+      })
+    );
 
-      edges.push(
-        createEdge(`rs-pod-${pod.name}`, "rs", podId, "creates/manages", "ownership", "live"),
-        createEdge(`node-pod-${pod.name}`, anchorNodeId, podId, "runs on", "placement", "live"),
-        createEdge(
-          `svc-pod-${pod.name}`,
-          "svc",
-          podId,
-          pod.ready ? "traffic allowed (Ready)" : "traffic blocked (Not Ready)",
-          pod.ready ? "traffic-ready" : "traffic-blocked",
-          "live"
-        )
-      );
-    });
+    edges.push(
+      createEdge(`rs-pod-${pod.name}`, "rs", podId, "creates/manages", "ownership", "live"),
+      createEdge(`node-pod-${pod.name}`, workerNodeId, podId, "runs on", "placement", "live"),
+      createEdge(
+        `svc-pod-${pod.name}`,
+        "svc",
+        podId,
+        pod.ready ? "traffic allowed (Ready)" : "traffic blocked (Not Ready)",
+        pod.ready ? "traffic-ready" : "traffic-blocked",
+        "live"
+      )
+    );
   }
 
   if (omittedPodCount > 0) {
-    const overflowY = workerYBase + workers.length * workerSpacing + 120;
     nodes.push(
-      createNode("pod-overflow", 820, overflowY, {
+      createNode("pod-overflow", {
         label: `Additional Pods\n+${omittedPodCount} omitted`,
         category: "live-workload",
         source: "live",
@@ -495,8 +569,105 @@ export function buildClusterGraph(state: ClusterState | null): {
         metadata: [`total pods observed: ${allPods.length}`, `pods drawn in graph: ${pods.length}`]
       })
     );
+
     edges.push(createEdge("rs-overflow", "rs", "pod-overflow", "more pods", "ownership", "live"));
   }
 
   return { nodes, edges };
+}
+
+async function layoutGraphNodes(nodes: Node<ClusterGraphNodeData>[], edges: Edge<ClusterGraphEdgeData>[]): Promise<Node<ClusterGraphNodeData>[]> {
+  const elkChildren = nodes.map((node) => {
+    const dims = nodeDimensions(node.data.category);
+
+    return {
+      id: node.id,
+      width: dims.width,
+      height: dims.height
+    };
+  });
+
+  const elkGraph = {
+    id: "cluster-graph",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "RIGHT",
+      "elk.spacing.nodeNode": "50",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "140",
+      "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+      "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP"
+    },
+    children: elkChildren,
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      sources: [edge.source],
+      targets: [edge.target]
+    }))
+  };
+
+  const layout = await elk.layout(elkGraph);
+  const positions = new Map(
+    (layout.children ?? []).map((child) => [
+      child.id,
+      {
+        x: child.x ?? 0,
+        y: child.y ?? 0
+      }
+    ])
+  );
+
+  const positioned = nodes.map((node) => {
+    const pos = positions.get(node.id) ?? { x: 0, y: 0 };
+    return {
+      ...node,
+      position: {
+        x: pos.x,
+        y: pos.y + 70
+      }
+    };
+  });
+
+  for (const lane of ["control", "desired", "workers", "workloads"] as ClusterGraphLane[]) {
+    const laneNodes = positioned
+      .filter((node) => nodeLane(node.id) === lane)
+      .sort((a, b) => {
+        const orderA = laneOrder(a.id);
+        const orderB = laneOrder(b.id);
+
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return a.position.y - b.position.y;
+      });
+
+    const firstY = laneNodes.length > 0 ? laneNodes[0].position.y : 0;
+    let cursorY = LANE_MIN_Y[lane];
+    for (const laneNode of laneNodes) {
+      laneNode.position.x = LANE_X[lane];
+      const normalizedY = LANE_MIN_Y[lane] + (laneNode.position.y - firstY);
+      laneNode.position.y = Math.max(normalizedY, cursorY);
+      cursorY = laneNode.position.y + LANE_GAP[lane];
+    }
+  }
+
+  return positioned;
+}
+
+function groupNodes(): Node<ClusterGraphNodeData>[] {
+  return [
+    createGroupNode("group-control", "Control Plane (Conceptual Teaching Layer)", LANE_X.control),
+    createGroupNode("group-desired", "Desired-State Resources (Live Objects)", LANE_X.desired),
+    createGroupNode("group-workers", "Worker Nodes + Running Workloads (Live Objects)", LANE_X.workers)
+  ];
+}
+
+export async function buildClusterGraph(state: ClusterState | null): Promise<ClusterGraphShape> {
+  const baseGraph = baseGraphFromState(state);
+  const positionedNodes = await layoutGraphNodes(baseGraph.nodes, baseGraph.edges);
+
+  return {
+    nodes: [...groupNodes(), ...positionedNodes],
+    edges: baseGraph.edges
+  };
 }
