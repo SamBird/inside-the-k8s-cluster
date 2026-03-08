@@ -6,7 +6,6 @@ import {
   Background,
   Controls,
   Edge,
-  MiniMap,
   Node,
   ReactFlow
 } from "@xyflow/react";
@@ -46,7 +45,6 @@ const focusModeConfig: Record<
       "conceptual-control",
       "reconciliation",
       "ownership",
-      "scheduling",
       "placement",
       "traffic-ready",
       "traffic-blocked"
@@ -248,7 +246,7 @@ export default function ClusterGraphPage() {
               nodes={displayNodes}
               edges={displayEdges}
               fitView
-              fitViewOptions={{ padding: 0.16, minZoom: 0.4, maxZoom: 1.2 }}
+              fitViewOptions={{ padding: 0.12, minZoom: 0.3, maxZoom: 1.4 }}
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable
@@ -258,7 +256,6 @@ export default function ClusterGraphPage() {
               maxZoom={1.5}
             >
               <Background color="#d3dee8" gap={20} />
-              <MiniMap pannable zoomable />
               <Controls showInteractive={false} />
             </ReactFlow>
           </div>

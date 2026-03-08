@@ -917,9 +917,9 @@ button {
 .graph-layout {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: 1.9fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
-  min-height: 68vh;
+  min-height: auto;
 }
 
 .graph-canvas-panel,
@@ -930,7 +930,7 @@ button {
 }
 
 .graph-canvas {
-  min-height: 68vh;
+  min-height: 72vh;
   border: 1px solid #9bb3c1;
   border-radius: 10px;
   overflow: hidden;
@@ -1035,6 +1035,6 @@ button {
   }
 
   .graph-canvas {
-    min-height: 62vh;
+    min-height: 60vh;
   }
 }
