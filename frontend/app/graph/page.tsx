@@ -1,34 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-import {
-  Background,
-  Controls,
-  Edge,
-  Node,
-  ReactFlow
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Edge, Node, Options } from "vis-network";
 
 import { PageNav } from "../../components/PageNav";
 import { getState, subscribeToState } from "../../lib/api";
-import {
-  buildClusterGraph,
-  ClusterGraphEdgeData,
-  ClusterGraphEdgeKind,
-  ClusterGraphNodeData
-} from "../../lib/clusterGraph";
+import { buildVisGraph, ClusterGraphEdgeKind, GraphNodeData } from "../../lib/visGraph";
 import { ClusterState, ConnectionState } from "../../lib/types";
 
-function metadataForNode(node: Node<ClusterGraphNodeData> | undefined): string[] {
-  if (!node) {
-    return [];
-  }
-  return node.data.metadata ?? [];
-}
-
 type GraphFocusMode = "overview" | "control-loop" | "traffic-readiness";
+
+type NetworkInstance = import("vis-network").Network;
 
 const focusModeConfig: Record<
   GraphFocusMode,
@@ -41,12 +23,7 @@ const focusModeConfig: Record<
   overview: {
     label: "Overview",
     description: "Clean default view of control-plane, ownership, and placement relationships.",
-    edgeKinds: [
-      "conceptual-control",
-      "reconciliation",
-      "ownership",
-      "placement"
-    ]
+    edgeKinds: ["conceptual-control", "reconciliation", "ownership", "placement"]
   },
   "control-loop": {
     label: "Control Loop",
@@ -60,18 +37,281 @@ const focusModeConfig: Record<
   }
 };
 
+const nodePalette: Record<
+  GraphNodeData["category"],
+  {
+    bg: string;
+    border: string;
+    text: string;
+    dashed: boolean;
+  }
+> = {
+  group: {
+    bg: "#f4f7fa",
+    border: "#8fa5b4",
+    text: "#2b4656",
+    dashed: true
+  },
+  conceptual: {
+    bg: "#fff6de",
+    border: "#915f00",
+    text: "#3f2b00",
+    dashed: true
+  },
+  "live-resource": {
+    bg: "#f2ecff",
+    border: "#5f4a91",
+    text: "#2d2050",
+    dashed: false
+  },
+  "live-node": {
+    bg: "#e8f7ef",
+    border: "#2f8e63",
+    text: "#164932",
+    dashed: false
+  },
+  "live-workload": {
+    bg: "#eef7ff",
+    border: "#2d6f95",
+    text: "#16384d",
+    dashed: false
+  }
+};
+
+const edgePalette: Record<
+  ClusterGraphEdgeKind,
+  {
+    color: string;
+    width: number;
+    dashed: boolean;
+  }
+> = {
+  "conceptual-control": {
+    color: "#915f00",
+    width: 2,
+    dashed: true
+  },
+  reconciliation: {
+    color: "#d48a00",
+    width: 2,
+    dashed: true
+  },
+  ownership: {
+    color: "#2d6f95",
+    width: 2,
+    dashed: false
+  },
+  scheduling: {
+    color: "#7d6f00",
+    width: 2,
+    dashed: true
+  },
+  placement: {
+    color: "#1f9d6a",
+    width: 2,
+    dashed: false
+  },
+  "traffic-ready": {
+    color: "#168b5f",
+    width: 3,
+    dashed: false
+  },
+  "traffic-blocked": {
+    color: "#c03a2b",
+    width: 2,
+    dashed: true
+  }
+};
+
+const networkOptions: Options = {
+  autoResize: true,
+  physics: {
+    enabled: false
+  },
+  interaction: {
+    dragNodes: false,
+    hover: true,
+    multiselect: false,
+    navigationButtons: true,
+    keyboard: false
+  },
+  layout: {
+    improvedLayout: false
+  },
+  edges: {
+    arrows: {
+      to: {
+        enabled: true,
+        scaleFactor: 0.6
+      }
+    },
+    smooth: {
+      enabled: true,
+      type: "cubicBezier",
+      forceDirection: "horizontal",
+      roundness: 0.28
+    }
+  },
+  nodes: {
+    shape: "box"
+  }
+};
+
+function metadataForNode(node: GraphNodeData | undefined): string[] {
+  if (!node) {
+    return [];
+  }
+  return node.metadata ?? [];
+}
+
+function collectRelated(selectedNodeId: string | null, edges: { source: string; target: string; id: string }[]): {
+  relatedNodeIds: Set<string>;
+  relatedEdgeIds: Set<string>;
+} {
+  if (!selectedNodeId) {
+    return {
+      relatedNodeIds: new Set<string>(),
+      relatedEdgeIds: new Set<string>()
+    };
+  }
+
+  const relatedNodeIds = new Set<string>([selectedNodeId]);
+  const relatedEdgeIds = new Set<string>();
+
+  for (const edge of edges) {
+    if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
+      relatedEdgeIds.add(edge.id);
+      relatedNodeIds.add(edge.source);
+      relatedNodeIds.add(edge.target);
+    }
+  }
+
+  return {
+    relatedNodeIds,
+    relatedEdgeIds
+  };
+}
+
+function toVisNode(node: GraphNodeData, selectedNodeId: string | null, relatedNodeIds: Set<string>): Node {
+  const palette = nodePalette[node.category];
+  const isSelected = node.id === selectedNodeId;
+  const hasSelection = selectedNodeId !== null;
+  const isRelated = !hasSelection || relatedNodeIds.has(node.id);
+  const faded = hasSelection && !isRelated;
+
+  const background = faded ? "#f4f7f9" : palette.bg;
+  const border = isSelected ? "#0f8b8d" : faded ? "#c3d1da" : palette.border;
+  const text = faded ? "#8ca1ad" : palette.text;
+
+  return {
+    id: node.id,
+    label: node.label,
+    x: node.x,
+    y: node.y,
+    fixed: {
+      x: true,
+      y: true
+    },
+    physics: false,
+    color: {
+      background,
+      border,
+      highlight: {
+        background,
+        border: "#0f8b8d"
+      },
+      hover: {
+        background,
+        border
+      }
+    },
+    borderWidth: isSelected ? 4 : node.isSection ? 1 : 2,
+    widthConstraint: node.isSection
+      ? {
+          minimum: 220,
+          maximum: 245
+        }
+      : {
+          minimum: 210,
+          maximum: 250
+        },
+    margin: node.isSection
+      ? {
+          top: 10,
+          bottom: 10,
+          left: 14,
+          right: 14
+        }
+      : {
+          top: 10,
+          bottom: 10,
+          left: 10,
+          right: 10
+        },
+    font: {
+      color: text,
+      size: node.isSection ? 13 : 12,
+      face: '"Sora", "Gill Sans", "Trebuchet MS", sans-serif',
+      multi: "md"
+    },
+    shapeProperties: {
+      borderDashes: node.isSection || palette.dashed
+    }
+  };
+}
+
+function toVisEdge(
+  edge: {
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    kind: ClusterGraphEdgeKind;
+  },
+  selectedNodeId: string | null,
+  relatedEdgeIds: Set<string>
+): Edge {
+  const palette = edgePalette[edge.kind];
+  const hasSelection = selectedNodeId !== null;
+  const isRelated = !hasSelection || relatedEdgeIds.has(edge.id);
+  const faded = hasSelection && !isRelated;
+
+  return {
+    id: edge.id,
+    from: edge.source,
+    to: edge.target,
+    label: isRelated ? edge.label : "",
+    color: faded
+      ? {
+          color: "#c9d6de",
+          highlight: palette.color,
+          hover: palette.color
+        }
+      : {
+          color: palette.color,
+          highlight: palette.color,
+          hover: palette.color
+        },
+    dashes: faded ? true : palette.dashed,
+    width: faded ? 1 : isRelated && hasSelection ? palette.width + 0.6 : palette.width,
+    font: {
+      size: 10,
+      color: "#1e3848",
+      background: "#ffffff",
+      strokeWidth: 0,
+      align: "horizontal"
+    }
+  };
+}
+
 export default function ClusterGraphPage() {
   const [state, setState] = useState<ClusterState | null>(null);
-  const [graph, setGraph] = useState<{
-    nodes: Node<ClusterGraphNodeData>[];
-    edges: Edge<ClusterGraphEdgeData>[];
-  }>({
-    nodes: [],
-    edges: []
-  });
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState<GraphFocusMode>("overview");
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const networkRef = useRef<NetworkInstance | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,111 +353,92 @@ export default function ClusterGraphPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const applyLayout = async () => {
-      try {
-        const nextGraph = await buildClusterGraph(state);
-        if (cancelled) {
-          return;
-        }
-        setGraph(nextGraph);
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setGraph({ nodes: [], edges: [] });
-      }
-    };
-
-    applyLayout();
-    return () => {
-      cancelled = true;
-    };
-  }, [state]);
-
   const activeFocus = focusModeConfig[focusMode];
 
-  const filteredEdges = useMemo(() => {
-    const allowedKinds = new Set(activeFocus.edgeKinds);
-    return graph.edges.filter((edge) => {
-      const kind = edge.data?.kind;
-      return Boolean(kind && allowedKinds.has(kind as ClusterGraphEdgeKind));
-    });
-  }, [graph.edges, activeFocus.edgeKinds]);
-
-  const visibleNodeIds = useMemo(() => {
-    const visible = new Set<string>(["group-control", "group-desired", "group-workers"]);
-    for (const edge of filteredEdges) {
-      visible.add(edge.source);
-      visible.add(edge.target);
-    }
-    return visible;
-  }, [filteredEdges]);
+  const graphData = useMemo(() => {
+    return buildVisGraph(state, new Set(activeFocus.edgeKinds));
+  }, [state, activeFocus.edgeKinds]);
 
   useEffect(() => {
-    if (selectedNodeId && !visibleNodeIds.has(selectedNodeId)) {
+    if (selectedNodeId && !graphData.nodeMap[selectedNodeId]) {
       setSelectedNodeId(null);
     }
-  }, [selectedNodeId, visibleNodeIds]);
+  }, [selectedNodeId, graphData.nodeMap]);
 
-  const selectedNode = useMemo(
-    () => graph.nodes.find((node) => node.id === selectedNodeId && visibleNodeIds.has(node.id)),
-    [graph.nodes, selectedNodeId, visibleNodeIds]
-  );
+  const related = useMemo(() => {
+    return collectRelated(selectedNodeId, graphData.edges);
+  }, [selectedNodeId, graphData.edges]);
 
-  const relatedNodeIds = useMemo(() => {
-    const related = new Set<string>();
-    if (!selectedNodeId) {
-      return related;
-    }
+  const visNodes = useMemo(() => {
+    return graphData.nodes.map((node) => toVisNode(node, selectedNodeId, related.relatedNodeIds));
+  }, [graphData.nodes, selectedNodeId, related.relatedNodeIds]);
 
-    related.add(selectedNodeId);
-    for (const edge of filteredEdges) {
-      if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
-        related.add(edge.source);
-        related.add(edge.target);
+  const visEdges = useMemo(() => {
+    return graphData.edges.map((edge) => toVisEdge(edge, selectedNodeId, related.relatedEdgeIds));
+  }, [graphData.edges, selectedNodeId, related.relatedEdgeIds]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const startNetwork = async () => {
+      if (!containerRef.current) {
+        return;
       }
+
+      const { Network } = await import("vis-network/standalone");
+
+      if (disposed || !containerRef.current) {
+        return;
+      }
+
+      const network = new Network(containerRef.current, { nodes: visNodes, edges: visEdges }, networkOptions);
+      network.on("click", (params) => {
+        if (params.nodes.length > 0) {
+          setSelectedNodeId(String(params.nodes[0]));
+          return;
+        }
+        setSelectedNodeId(null);
+      });
+
+      networkRef.current = network;
+      network.fit({
+        animation: false,
+        minZoomLevel: 0.32,
+        maxZoomLevel: 1.2
+      });
+    };
+
+    startNetwork();
+
+    return () => {
+      disposed = true;
+      if (networkRef.current) {
+        networkRef.current.destroy();
+      }
+      networkRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const network = networkRef.current;
+    if (!network) {
+      return;
     }
-    return related;
-  }, [filteredEdges, selectedNodeId]);
 
-  const displayNodes = useMemo(() => {
-    return graph.nodes.filter((node) => visibleNodeIds.has(node.id)).map((node) => {
-      const isSelected = node.id === selectedNodeId;
-      const isRelated = relatedNodeIds.has(node.id);
-      const shouldDim = Boolean(selectedNodeId) && !isRelated;
-      return {
-        ...node,
-        style: {
-          ...node.style,
-          opacity: shouldDim ? 0.25 : 1,
-          boxShadow: isSelected ? "0 0 0 3px rgba(15,139,141,0.35)" : node.style?.boxShadow
-        }
-      } as Node<ClusterGraphNodeData>;
+    network.setData({
+      nodes: visNodes,
+      edges: visEdges
     });
-  }, [graph.nodes, relatedNodeIds, selectedNodeId, visibleNodeIds]);
 
-  const displayEdges = useMemo(() => {
-    return filteredEdges.map((edge) => {
-      const isRelated = selectedNodeId
-        ? edge.source === selectedNodeId || edge.target === selectedNodeId
-        : true;
-      return {
-        ...edge,
-        label: selectedNodeId && isRelated ? edge.label : undefined,
-        style: {
-          ...edge.style,
-          opacity: isRelated ? 1 : 0.15
-        }
-      } as Edge<ClusterGraphEdgeData>;
-    });
-  }, [filteredEdges, selectedNodeId]);
+    if (selectedNodeId) {
+      network.selectNodes([selectedNodeId]);
+      return;
+    }
+    network.unselectAll();
+  }, [visNodes, visEdges, selectedNodeId]);
 
-  const onNodeClick = (_event: unknown, node: Node<ClusterGraphNodeData>) => {
-    setSelectedNodeId(node.id);
-  };
+  const selectedNode = selectedNodeId ? graphData.nodeMap[selectedNodeId] : undefined;
 
   return (
     <main className="page-shell">
@@ -249,6 +470,25 @@ export default function ClusterGraphPage() {
               {focusModeConfig[mode].label}
             </button>
           ))}
+          <button
+            type="button"
+            className="focus-chip"
+            onClick={() => {
+              networkRef.current?.fit({
+                animation: {
+                  duration: 250,
+                  easingFunction: "easeInOutCubic"
+                },
+                minZoomLevel: 0.32,
+                maxZoomLevel: 1.2
+              });
+            }}
+          >
+            Fit Graph
+          </button>
+          <button type="button" className="focus-chip" onClick={() => setSelectedNodeId(null)}>
+            Clear Highlight
+          </button>
         </div>
         <p className="panel-subtitle graph-focus-note">{activeFocus.description}</p>
         <div className="graph-legend-grid">
@@ -270,23 +510,7 @@ export default function ClusterGraphPage() {
         <div className="panel graph-canvas-panel">
           <h2>Cluster Relationship Graph</h2>
           <div className="graph-canvas">
-            <ReactFlow
-              key={`${displayNodes.length}-${displayEdges.length}-${focusMode}`}
-              nodes={displayNodes}
-              edges={displayEdges}
-              fitView
-              fitViewOptions={{ padding: 0.18, minZoom: 0.25, maxZoom: 1 }}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable
-              onNodeClick={onNodeClick}
-              onPaneClick={() => setSelectedNodeId(null)}
-              minZoom={0.35}
-              maxZoom={1.2}
-            >
-              <Background color="#d3dee8" gap={20} />
-              <Controls showInteractive={false} />
-            </ReactFlow>
+            <div ref={containerRef} className="vis-graph" />
           </div>
         </div>
 
@@ -295,12 +519,11 @@ export default function ClusterGraphPage() {
           {selectedNode ? (
             <>
               <p>
-                <strong>{selectedNode.data.label}</strong>
+                <strong>{selectedNode.label}</strong>
               </p>
-              <p>{selectedNode.data.detail ?? "No additional detail."}</p>
+              <p>{selectedNode.detail ?? "No additional detail."}</p>
               <p>
-                <strong>Source:</strong>{" "}
-                {selectedNode.data.source === "conceptual" ? "Conceptual teaching model" : "Live discovered state"}
+                <strong>Source:</strong> {selectedNode.source === "conceptual" ? "Conceptual teaching model" : "Live discovered state"}
               </p>
               <ul className="graph-meta-list">
                 {metadataForNode(selectedNode).map((line) => (
