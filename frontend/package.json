@@ -10,10 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@xyflow/react": "^12.10.1",
+    "elkjs": "^0.11.1",
     "next": "14.2.24",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "vis-network": "^10.0.2"
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/node": "22.13.10",
