@@ -191,42 +191,6 @@ export default function DashboardPage() {
     }
   };
 
-  const triggerApplyYamlJourney = () => {
-    setExplainedScenario("apply-yaml-journey");
-    setExplainedRun({
-      scenario: "apply-yaml-journey",
-      status: "success",
-      actionLabel: "Apply YAML journey",
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      message: "Educational walkthrough selected. Sequence is conceptual and aligned to live state signals."
-    });
-    setTimeline((existing) =>
-      prependTimeline(
-        existing,
-        [newTimeline("info", "Apply YAML journey selected", "Using educational flow for 2–3 minute explanation")]
-      )
-    );
-  };
-
-  const triggerControllerReconciliation = () => {
-    setExplainedScenario("controller-reconciliation");
-    setExplainedRun({
-      scenario: "controller-reconciliation",
-      status: "success",
-      actionLabel: "Controller reconciliation",
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      message: "Teaching scenario selected. Delete a pod to demonstrate self-healing and convergence."
-    });
-    setTimeline((existing) =>
-      prependTimeline(
-        existing,
-        [newTimeline("info", "Controller reconciliation selected", "Delete a pod to show drift and automatic recovery")]
-      )
-    );
-  };
-
   const onGenerateTraffic = async () => {
     if (trafficRunning) {
       return;
@@ -358,8 +322,6 @@ export default function DashboardPage() {
           run={explainedRun}
           state={state}
           onScenarioChange={setExplainedScenario}
-          onTriggerApplyYamlJourney={triggerApplyYamlJourney}
-          onTriggerControllerReconciliation={triggerControllerReconciliation}
         />
 
         <div className="reveal-5">

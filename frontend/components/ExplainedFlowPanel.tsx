@@ -12,8 +12,6 @@ interface ExplainedFlowPanelProps {
   run: ExplainedFlowRun | null;
   state: ClusterState | null;
   onScenarioChange: (scenario: ExplainedFlowScenario) => void;
-  onTriggerApplyYamlJourney: () => void;
-  onTriggerControllerReconciliation: () => void;
 }
 
 type StepState = "pending" | "active" | "done" | "error";
@@ -60,9 +58,7 @@ export function ExplainedFlowPanel({
   scenario,
   run,
   state,
-  onScenarioChange,
-  onTriggerApplyYamlJourney,
-  onTriggerControllerReconciliation
+  onScenarioChange
 }: ExplainedFlowPanelProps) {
   const selected = findExplainedFlowScenario(scenario);
   const runForSelection = run?.scenario === scenario ? run : null;
@@ -96,18 +92,6 @@ export function ExplainedFlowPanel({
             </option>
           ))}
         </select>
-        <div className="explained-flow-trigger-row">
-          <button type="button" className="action-button explained-flow-trigger" onClick={onTriggerApplyYamlJourney}>
-            Apply YAML journey
-          </button>
-          <button
-            type="button"
-            className="action-button explained-flow-trigger action-warn"
-            onClick={onTriggerControllerReconciliation}
-          >
-            Controller reconciliation
-          </button>
-        </div>
       </div>
 
       <p className="explained-flow-summary">{selected.summary}</p>

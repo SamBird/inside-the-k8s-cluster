@@ -432,16 +432,6 @@ button {
   background: #fff;
 }
 
-.explained-flow-trigger {
-  max-width: 280px;
-}
-
-.explained-flow-trigger-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .explained-flow-summary {
   margin: 10px 0;
   padding: 10px;
