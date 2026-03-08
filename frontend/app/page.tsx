@@ -42,6 +42,13 @@ const defaultDesired: DesiredState = {
   readinessHealthy: true
 };
 
+const resetDesired: DesiredState = {
+  deployed: true,
+  replicas: 1,
+  version: "v1",
+  readinessHealthy: true
+};
+
 function desiredFromActual(state: ClusterState): DesiredState {
   return {
     deployed: state.deployment.exists,
@@ -280,7 +287,7 @@ export default function DashboardPage() {
               );
             }}
             onGenerateTraffic={onGenerateTraffic}
-            onReset={() => runAction("Reset demo", resetDemo, defaultDesired)}
+            onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
           />
         </div>
 
