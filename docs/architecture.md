@@ -23,6 +23,7 @@ The system has four layers:
 - Kubernetes Python client integration
 - action endpoints for deploy, scale, pod delete, rollout/restart, readiness toggle, reset
 - SSE endpoint to push state updates to frontend
+- node discovery metadata for talk context (control-plane detection from node role labels + selected node labels)
 
 4. Presentation layer (`frontend`):
 - Next.js dashboard
@@ -40,6 +41,7 @@ The system has four layers:
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
 
 Control-plane component cards and explained-flow sequences in the UI are intentionally educational. This includes dedicated `Apply YAML journey` and `Controller reconciliation` scenarios. These flows are inferred from action context plus cluster state snapshots, not direct process-level telemetry from control-plane binaries.
+Live node/resource context shown beside those cards is discovered from Kubernetes API snapshots and clearly labeled as such.
 
 ## Kubernetes Resources
 

@@ -33,6 +33,7 @@ NEXT_PUBLIC_DEMO_APP_BASE_URL=http://localhost:8080
 - `NEXT_PUBLIC_BACKEND_URL` points to FastAPI backend.
 - `NEXT_PUBLIC_DEMO_APP_BASE_URL` should point to demo-app HTTP endpoint.
 - control-plane cards are explanatory teaching content, not per-component telemetry.
+- control-plane panel includes discovered live node context (control-plane node name, roles, selected labels) from Kubernetes API.
 - explained flow steps are inferred teaching sequences, combined with separate live state signals.
 - `Apply YAML journey` is a dedicated 2-3 minute teaching walkthrough of Deployment submission and reconciliation.
 - `Controller reconciliation` is tied to the delete-pod action to demonstrate self-healing and return to desired replicas.

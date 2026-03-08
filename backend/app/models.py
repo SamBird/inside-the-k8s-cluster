@@ -19,7 +19,9 @@ class NodeState(BaseModel):
     name: str
     ready: bool = False
     role: str = "worker"
+    roles: list[str] = Field(default_factory=list)
     kubelet_version: str | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 class DeploymentState(BaseModel):

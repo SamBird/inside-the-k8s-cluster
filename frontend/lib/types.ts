@@ -4,7 +4,9 @@ export interface NodeState {
   name: string;
   ready: boolean;
   role: "control-plane" | "worker" | string;
+  roles?: string[];
   kubelet_version?: string | null;
+  labels?: Record<string, string>;
 }
 
 export interface PodState {

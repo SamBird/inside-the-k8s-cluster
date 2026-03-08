@@ -351,7 +351,7 @@ export default function DashboardPage() {
           <DesiredActualPanel desired={desired} actual={state} />
         </div>
 
-        <ControlPlaneOverview />
+        <ControlPlaneOverview state={state} />
 
         <ExplainedFlowPanel
           scenario={explainedScenario}

@@ -280,6 +280,16 @@ button {
   gap: 10px;
 }
 
+.control-plane-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.control-plane-section h3 {
+  margin: 10px 0 0;
+}
+
 .control-plane-card {
   border: 2px solid #486474;
   border-radius: 10px;
@@ -295,6 +305,92 @@ button {
 .control-plane-card p {
   margin: 6px 0;
   font-size: 0.93rem;
+}
+
+.control-plane-live {
+  margin-top: 12px;
+  border: 2px solid #6b8494;
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, #f9fcff, #f1f8ff);
+}
+
+.cluster-context-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cluster-context-card {
+  border: 1px solid #8ea5b4;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.cluster-context-card h4 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.cluster-context-card strong {
+  font-size: 1rem;
+}
+
+.control-plane-note {
+  margin-top: 10px;
+  border: 1px solid #c6952d;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff4de;
+}
+
+.control-plane-note p {
+  margin: 0;
+}
+
+.control-plane-node-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.control-plane-node-card {
+  border: 1px solid #6e8999;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.control-plane-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-plane-node-card p {
+  margin: 6px 0 0;
+  font-size: 0.92rem;
+}
+
+.control-plane-labels {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #7f99a8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  background: #edf5fb;
 }
 
 .explained-flow-controls {
@@ -713,6 +809,10 @@ button {
   }
 
   .control-plane-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-context-grid {
     grid-template-columns: 1fr;
   }
 

@@ -93,16 +93,42 @@ class KubernetesService:
             conditions = node.status.conditions or []
             is_ready = any(c.type == "Ready" and c.status == "True" for c in conditions)
 
+            roles: list[str] = []
+            for key in labels:
+                if key.startswith("node-role.kubernetes.io/"):
+                    roles.append(key.removeprefix("node-role.kubernetes.io/") or "worker")
+            if "node-role.kubernetes.io/master" in labels and "master" not in roles:
+                roles.append("master")
+
             role = "worker"
-            if "node-role.kubernetes.io/control-plane" in labels or "node-role.kubernetes.io/master" in labels:
+            if "control-plane" in roles or "master" in roles:
                 role = "control-plane"
+            if not roles:
+                roles = [role]
+
+            selected_labels: dict[str, str] = {}
+            for label_key in (
+                "kubernetes.io/hostname",
+                "kubernetes.io/os",
+                "kubernetes.io/arch",
+                "topology.kubernetes.io/zone",
+                "topology.kubernetes.io/region",
+            ):
+                if label_key in labels:
+                    selected_labels[label_key] = str(labels[label_key])
+
+            for key in sorted(labels):
+                if key.startswith("node-role.kubernetes.io/"):
+                    selected_labels[key] = str(labels[key] or "<set>")
 
             result.append(
                 NodeState(
                     name=node.metadata.name,
                     ready=is_ready,
                     role=role,
+                    roles=roles,
                     kubelet_version=(node.status.node_info.kubelet_version if node.status else None),
+                    labels=selected_labels,
                 )
             )
         return result
