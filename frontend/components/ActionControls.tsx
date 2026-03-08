@@ -43,6 +43,9 @@ export function ActionControls({
         <h2>Action Controls</h2>
         <span className="muted">Safe, predictable operations against the demo namespace</span>
       </div>
+      <p className="presenter-guidance">
+        {"Suggested live order: Apply YAML journey -> Controller reconciliation -> Break/Restore readiness -> Scale -> Rollout -> Generate traffic -> Reset"}
+      </p>
 
       <div className="action-grid">
         <button className="action-button" onClick={onDeploy} disabled={disabledIfBusy(busyAction)}>
@@ -92,7 +95,7 @@ export function ActionControls({
         </button>
       </div>
 
-      {busyAction ? <p className="muted">Running: {busyAction}</p> : null}
+      {busyAction ? <p className="presenter-status">Running now: {busyAction}</p> : null}
     </section>
   );
 }

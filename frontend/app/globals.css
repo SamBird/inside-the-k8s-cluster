@@ -193,6 +193,16 @@ button {
   gap: 10px;
 }
 
+.presenter-guidance {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border: 1px solid #9eb0bc;
+  border-radius: 10px;
+  background: #f4f8fb;
+  font-size: 0.9rem;
+  color: #26404f;
+}
+
 .action-button {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -212,6 +222,15 @@ button {
 .action-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.presenter-status {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff4de;
+  border: 1px solid #c6952d;
+  font-weight: 700;
 }
 
 .action-warn {
