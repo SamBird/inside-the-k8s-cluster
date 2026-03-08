@@ -1,6 +1,6 @@
 # Demo Script
 
-This script is designed for a live talk with the dashboard on screen and terminal available for backup verification.
+This runbook is optimized for a 2-3 minute teaching segment on Kubernetes control-plane behavior, plus action demos.
 
 Set a context shortcut once:
 
@@ -10,110 +10,79 @@ export KCTX=kind-inside-k8s
 
 ## Pre-Flight (Before Audience)
 
-1. Start cluster:
-
-```bash
-make preflight
-make cluster-up
-```
-
-If you want to automate all pre-flight steps (including backend/frontend checks), use:
+Preferred one-command setup:
 
 ```bash
 make demo-all VERSION=v1
 ```
 
-2. Build/load/deploy demo app v1:
+If you run components manually:
 
 ```bash
-make demo-image VERSION=v1
-make demo-load VERSION=v1
-make demo-deploy
-```
-
-Equivalent shortcut:
-
-```bash
+make cluster-up
 make demo-up VERSION=v1
-```
-
-3. Start backend and frontend:
-
-```bash
-make backend-install
-make backend-run
-```
-
-In another terminal:
-
-```bash
-make frontend-install
-make frontend-run
-```
-
-4. Port-forward demo service for browser traffic panel:
-
-```bash
+make backend-install && make backend-run
+make frontend-install && make frontend-run
 kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
 ```
 
-## Live Demo Walkthrough
+## Revised Talk Flow
 
-1. **Establish baseline**
-- Show topology panel and desired-vs-actual panel.
-- Confirm deployment is visible and replicas at 1.
+1. **Cluster overview**
+- Show live discovered cluster context in the control-plane panel (namespace, node counts, deployment/service/pod context).
+- Call out control-plane node detection if visible.
 
-2. **Deploy app (if starting empty)**
-- Click `Deploy app`.
-- Optional backup:
+2. **Control-plane overview**
+- Use conceptual cards for:
+  - `kube-apiserver`
+  - `etcd`
+  - `kube-scheduler`
+  - `kube-controller-manager`
+- Emphasize these are teaching models, not process telemetry.
 
-```bash
-curl -X POST http://localhost:8000/api/actions/deploy
-```
+3. **Apply YAML journey**
+- Click `Apply YAML journey` in explained-flow panel.
+- Optionally click `Deploy app` if you want to tie the flow to an immediate action.
+- Walk through: request -> desired state stored -> controllers -> ReplicaSet/Pods -> scheduler -> kubelet -> readiness -> Service traffic.
 
-3. **Scale 1 -> 3**
-- Click `Scale to 3`.
-- Watch new pods appear across workers.
-
-4. **Generate traffic**
-- Click `Generate traffic`.
-- In traffic table, show changing `podName` / `nodeName` values.
-
-5. **Delete pod**
+4. **Controller reconciliation**
+- Click `Controller reconciliation`.
 - Click `Delete pod`.
-- Watch one pod disappear and replacement pod appear.
+- Show desired replicas unchanged while actual running/ready temporarily diverge and then converge.
 
-6. **Break readiness**
-- Click `Break readiness`.
-- Show pods can be running but not ready.
-- Point to service endpoint count drop.
+5. **Readiness vs Running**
+- Click `Break readiness`, then `Restore readiness`.
+- Explain that Running is process state; Ready is traffic eligibility.
 
-7. **Restore readiness**
-- Click `Restore readiness`.
-- Show readiness recovers and service endpoints return.
+6. **Scaling behavior**
+- Click `Scale to 3`, then `Scale to 1`.
+- Highlight desired vs actual convergence and node placement changes.
 
-8. **Roll out new version**
-- Build and load v2 before action:
+7. **Rollout behavior**
+- Build/load `v2` first:
 
 ```bash
 make demo-image VERSION=v2
 make demo-load VERSION=v2
 ```
 
-- In UI rollout input use `v2`, click `Rollout new version`.
-- Show mixed old/new pods during rollout and final steady state.
+- In UI, enter `v2` and click `Rollout new version`.
+- Explain controlled replacement with readiness-gated traffic continuity.
 
-9. **Reset demo**
-- Click `Reset demo`.
-- Confirm return to replicas=1, version=v1, readiness healthy.
+8. **Optional traffic panel**
+- Click `Generate traffic` to show request distribution and response metadata (`podName`, `nodeName`, `imageVersion`, `readiness`).
+
+9. **Reset**
+- Click `Reset demo` to restore known baseline.
 
 ## Terminal Backup Commands (If UI Fails)
 
 ```bash
-curl -X POST http://localhost:8000/api/actions/scale -H 'Content-Type: application/json' -d '{"replicas":3}'
+curl -X POST http://localhost:8000/api/actions/deploy
 curl -X POST http://localhost:8000/api/actions/delete-pod -H 'Content-Type: application/json' -d '{}'
 curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":true}'
 curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":false}'
+curl -X POST http://localhost:8000/api/actions/scale -H 'Content-Type: application/json' -d '{"replicas":3}'
 curl -X POST http://localhost:8000/api/actions/rollout -H 'Content-Type: application/json' -d '{"version":"v2"}'
 curl -X POST http://localhost:8000/api/actions/reset
 ```

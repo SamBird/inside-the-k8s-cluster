@@ -28,7 +28,7 @@ The system has four layers:
 4. Presentation layer (`frontend`):
 - Next.js dashboard
 - control-plane overview + worker-node topology + workload resource views
-- explained-flow sequence panel for deploy/scale/delete/readiness/rollout actions
+- explained-flow sequence panel for `Apply YAML journey`, `Controller reconciliation`, deploy/scale/readiness/rollout actions
 - state drift, timeline, traffic response views
 - operator action buttons for demo flow
 
@@ -40,8 +40,34 @@ The system has four layers:
 4. Frontend updates topology and timeline from each new snapshot.
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
 
-Control-plane component cards and explained-flow sequences in the UI are intentionally educational. This includes dedicated `Apply YAML journey` and `Controller reconciliation` scenarios. These flows are inferred from action context plus cluster state snapshots, not direct process-level telemetry from control-plane binaries.
-Live node/resource context shown beside those cards is discovered from Kubernetes API snapshots and clearly labeled as such.
+## Control Plane Teaching Model
+
+The demo intentionally uses two layers:
+
+1. Conceptual teaching layer:
+- `kube-apiserver`
+- `etcd`
+- `kube-scheduler`
+- `kube-controller-manager`
+
+2. Discovered live layer:
+- control-plane node detection from node role labels
+- node role/label metadata from Kubernetes API
+- live deployment/pod/service context relevant to reconciliation
+
+Control-plane component cards and explained-flow sequences are educational/inferred models.  
+Live node/resource context is discovered from Kubernetes API snapshots and is labeled separately.  
+This avoids implying process-level telemetry for control-plane binaries.
+
+## Revised Talk Sequence
+
+1. Cluster overview (live discovered context)
+2. Control-plane overview (conceptual roles)
+3. `Apply YAML journey`
+4. `Controller reconciliation`
+5. Readiness vs Running
+6. Scaling behavior
+7. Rollout behavior
 
 ## Kubernetes Resources
 

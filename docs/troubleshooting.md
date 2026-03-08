@@ -44,7 +44,27 @@ kubectl --context "$KCTX" -n kube-system get pods | grep metrics-server
 
 Wait until metrics-server is Ready.
 
-## 3) Demo app image pull errors during rollout
+## 3) Control-plane node context is missing in UI
+
+Symptoms:
+- control-plane overview shows warning about no discovered control-plane node
+- live context looks incomplete
+
+Cause:
+- local distro may not expose standard role labels
+- kube context may point to a different cluster than expected
+
+Fix:
+
+```bash
+kubectl --context "$KCTX" get nodes --show-labels | grep "node-role.kubernetes.io"
+kubectl config current-context
+curl -s http://localhost:8000/api/state | jq '.nodes'
+```
+
+If role labels are absent, the conceptual control-plane section still teaches behavior; this is expected.
+
+## 4) Demo app image pull errors during rollout
 
 Symptoms:
 - pods in `ImagePullBackOff`
@@ -61,7 +81,7 @@ make demo-load VERSION=v2
 curl -X POST http://localhost:8000/api/actions/rollout -H 'Content-Type: application/json' -d '{"version":"v2"}'
 ```
 
-## 4) Frontend cannot reach backend
+## 5) Frontend cannot reach backend
 
 Symptoms:
 - dashboard shows degraded connection
@@ -73,7 +93,7 @@ Fix:
 - set `NEXT_PUBLIC_BACKEND_URL` in `frontend/.env.local`
 - restart frontend after env changes
 
-## 5) Traffic panel shows request failures
+## 6) Traffic panel shows request failures
 
 Symptoms:
 - errors in traffic table
@@ -86,7 +106,26 @@ kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
 
 Ensure `NEXT_PUBLIC_DEMO_APP_BASE_URL=http://localhost:8080`.
 
-## 6) Readiness stays false after restore
+## 7) Controller reconciliation scenario does not recover
+
+Symptoms:
+- after `Delete pod`, counts do not return to desired quickly
+
+Fix:
+
+```bash
+kubectl --context "$KCTX" -n inside-k8s-demo get deploy,pods
+kubectl --context "$KCTX" -n inside-k8s-demo rollout status deployment/demo-app
+curl -X POST http://localhost:8000/api/actions/delete-pod -H 'Content-Type: application/json' -d '{}'
+```
+
+If no pods exist, deploy first:
+
+```bash
+curl -X POST http://localhost:8000/api/actions/deploy
+```
+
+## 8) Readiness stays false after restore
 
 Symptoms:
 - pods remain Not Ready
@@ -99,7 +138,7 @@ kubectl --context "$KCTX" -n inside-k8s-demo rollout status deployment/demo-app
 kubectl --context "$KCTX" -n inside-k8s-demo get pods
 ```
 
-## 7) Need a hard reset before next run
+## 9) Need a hard reset before next run
 
 Fix:
 
@@ -116,6 +155,8 @@ make demo-deploy
 - No authentication or authorization model in frontend/backend.
 - Uses service port-forward for browser traffic tests (not ingress).
 - SSE stream is state-oriented and does not persist historical event logs.
+- Control-plane component cards and explained flow are educational models, not low-level process telemetry.
+- Control-plane node discovery depends on labels visible in the current cluster and context.
 
 ## Future Enhancements
 

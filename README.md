@@ -17,6 +17,20 @@ This project gives a live, visual explanation of Kubernetes control-loop behavio
 
 Detailed architecture is documented in [docs/architecture.md](docs/architecture.md).
 
+## Control Plane Overview
+
+The demo teaches four core control-plane components:
+
+- `kube-apiserver`: validates API requests and writes accepted object state.
+- `etcd`: stores cluster desired/current object state.
+- `kube-scheduler`: assigns unscheduled Pods to worker nodes.
+- `kube-controller-manager`: runs controllers that reconcile desired and actual state.
+
+In the dashboard:
+- conceptual component cards are educational explanations.
+- discovered node/cluster context is live metadata from Kubernetes API snapshots.
+- no per-process telemetry is claimed for control-plane binaries.
+
 ## Local Setup
 
 Prerequisites:
@@ -104,17 +118,17 @@ kubectl --context kind-inside-k8s -n inside-k8s-demo port-forward svc/demo-app 8
 
 ## Demo Walkthrough
 
-Short flow:
+Revised talk flow:
 
-1. Start with empty/initial cluster view.
-2. Deploy app.
-3. Scale 1 -> 3.
-4. Generate traffic and show load balancing.
-5. Delete one pod and show automatic replacement.
-6. Break readiness and explain running vs ready.
-7. Restore readiness.
-8. Roll out `v2`.
-9. Reset demo.
+1. Cluster overview (live node/resource context).
+2. Control-plane overview (conceptual component roles).
+3. `Apply YAML journey` (what happens after submission).
+4. `Controller reconciliation` (delete pod, watch self-healing).
+5. Readiness vs Running.
+6. Scaling behavior.
+7. Rollout behavior.
+8. Optional traffic/load-balancing demonstration.
+9. Reset.
 
 Full operator script is in [docs/demo-script.md](docs/demo-script.md).
 
@@ -138,6 +152,7 @@ make cluster-reset
 - Rollout to a new version expects the image tag to exist locally and be loadable into kind.
 - Traffic panel depends on service port-forward (`localhost:8080`) for browser access.
 - SSE timeline currently follows pod-level events and state snapshots, not full Kubernetes event history.
+- Local clusters do not expose rich per-component control-plane telemetry here; control-plane internals are taught conceptually and paired with discovered cluster metadata.
 
 ## Future Enhancements
 
