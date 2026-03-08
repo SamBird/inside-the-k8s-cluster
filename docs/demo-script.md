@@ -86,3 +86,15 @@ curl -X POST http://localhost:8000/api/actions/scale -H 'Content-Type: applicati
 curl -X POST http://localhost:8000/api/actions/rollout -H 'Content-Type: application/json' -d '{"version":"v2"}'
 curl -X POST http://localhost:8000/api/actions/reset
 ```
+
+## Post-Talk Shutdown
+
+```bash
+make demo-all-down
+```
+
+Optional:
+
+```bash
+STOP_COLIMA=1 make demo-all-down
+```

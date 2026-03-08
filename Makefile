@@ -7,7 +7,7 @@ NAMESPACE ?= inside-k8s-demo
 VERSION ?= v1
 NEW_VERSION ?= v2
 
-.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-stop backend-install backend-run frontend-install frontend-run
+.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop backend-install backend-run frontend-install frontend-run
 
 help:
 	@echo "Targets:"
@@ -26,6 +26,8 @@ help:
 	@echo "  make demo-up VERSION=v1      Build, load, deploy, and show demo status"
 	@echo "  make demo-all VERSION=v1     One-command end-to-end live-demo orchestration"
 	@echo "                               (set AUTO_START_COLIMA=0 to disable colima auto-start)"
+	@echo "  make demo-all-down           One-command full teardown for local demo stack"
+	@echo "                               (set STOP_COLIMA=1 to also stop colima)"
 	@echo "  make demo-stop               Stop local backend/frontend processes started by demo-all"
 	@echo "  make backend-install         Create backend venv and install requirements"
 	@echo "  make backend-run             Run backend API on :8000"
@@ -79,6 +81,9 @@ demo-up: demo-image demo-load demo-deploy demo-wait demo-status
 
 demo-all:
 	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) ./scripts/demo-all.sh
+
+demo-all-down:
+	@CLUSTER_NAME=$(CLUSTER_NAME) STOP_COLIMA=$(STOP_COLIMA) COLIMA_PROFILE=$(COLIMA_PROFILE) ./scripts/demo-all-down.sh
 
 demo-stop:
 	@./scripts/demo-stop.sh

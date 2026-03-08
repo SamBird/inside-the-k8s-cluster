@@ -85,6 +85,17 @@ If `kubectl top nodes` fails initially, wait briefly and retry while metrics-ser
 ## 7. Tear down
 
 ```bash
+make demo-all-down
+```
+
+If you only want to stop local backend/frontend processes but keep cluster resources:
+
+```bash
 make demo-stop
-make cluster-down
+```
+
+If you want to stop Colima as well:
+
+```bash
+STOP_COLIMA=1 make demo-all-down
 ```

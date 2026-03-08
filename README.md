@@ -68,6 +68,18 @@ To stop local backend/frontend processes started by `demo-all`:
 make demo-stop
 ```
 
+To shut down the full local demo stack (services + kind cluster):
+
+```bash
+make demo-all-down
+```
+
+Optionally stop Colima too:
+
+```bash
+STOP_COLIMA=1 make demo-all-down
+```
+
 If you use a non-default cluster name:
 
 ```bash
