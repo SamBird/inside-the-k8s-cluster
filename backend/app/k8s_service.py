@@ -405,11 +405,113 @@ class KubernetesService:
                 }
             },
         )
+        self._wait_for_rollout(version, timeout_seconds=75)
         return ActionResponse(
             action="rollout_version",
             message=f"Rolled out image demo-app:{version} and APP_VERSION={version}",
             state=self.get_state(),
         )
+
+    def _wait_for_rollout(self, version: str, timeout_seconds: int = 75) -> None:
+        assert self.apps is not None
+        deadline = time.time() + timeout_seconds
+        expected_image = f"demo-app:{version}"
+
+        while time.time() < deadline:
+            deployment = self.apps.read_namespaced_deployment(
+                name=self.cfg.deployment_name,
+                namespace=self.cfg.namespace,
+            )
+            if self._deployment_is_ready(deployment, expected_image=expected_image):
+                return
+
+            failure_reason = self._rollout_failure_reason(expected_image=expected_image)
+            if failure_reason:
+                raise BackendError(failure_reason)
+
+            time.sleep(2)
+
+        raise BackendError(
+            f"Rollout to {expected_image} did not become ready within {timeout_seconds}s. "
+            f"If this is a new local image tag, run: make demo-image VERSION={version} && make demo-load VERSION={version}"
+        )
+
+    def _deployment_is_ready(self, deployment: client.V1Deployment, expected_image: str) -> bool:
+        status = deployment.status
+        spec = deployment.spec
+        template_spec = spec.template.spec if spec and spec.template else None
+        containers = template_spec.containers if template_spec else None
+        replicas = spec.replicas if spec and spec.replicas is not None else 0
+
+        template_has_expected_image = False
+        for container_def in containers or []:
+            if container_def.name == self.cfg.container_name and container_def.image == expected_image:
+                template_has_expected_image = True
+                break
+
+        if not template_has_expected_image:
+            return False
+
+        observed_generation = status.observed_generation if status and status.observed_generation is not None else 0
+        generation = deployment.metadata.generation if deployment.metadata and deployment.metadata.generation is not None else 0
+        updated_replicas = status.updated_replicas if status and status.updated_replicas is not None else 0
+        total_replicas = status.replicas if status and status.replicas is not None else 0
+        ready_replicas = status.ready_replicas if status and status.ready_replicas is not None else 0
+        available_replicas = status.available_replicas if status and status.available_replicas is not None else 0
+
+        return (
+            observed_generation >= generation
+            and total_replicas == replicas
+            and updated_replicas == replicas
+            and ready_replicas == replicas
+            and available_replicas == replicas
+        )
+
+    def _rollout_failure_reason(self, expected_image: str) -> str | None:
+        assert self.core is not None
+        pods = self.core.list_namespaced_pod(
+            namespace=self.cfg.namespace,
+            label_selector=self.cfg.app_label,
+        ).items
+
+        image_pull_reasons = {"ErrImagePull", "ImagePullBackOff", "InvalidImageName"}
+        crash_reasons = {"CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError"}
+
+        for pod in pods:
+            pod_name = pod.metadata.name if pod.metadata and pod.metadata.name else "<unknown-pod>"
+            pod_spec = pod.spec
+            pod_status = pod.status
+
+            uses_expected_image = False
+            for container_def in (pod_spec.containers if pod_spec and pod_spec.containers else []):
+                if container_def.name == self.cfg.container_name and container_def.image == expected_image:
+                    uses_expected_image = True
+                    break
+            if not uses_expected_image:
+                continue
+
+            for container_status in (pod_status.container_statuses if pod_status and pod_status.container_statuses else []):
+                waiting = container_status.state.waiting if container_status and container_status.state else None
+                if not waiting:
+                    continue
+                reason = waiting.reason or "Unknown"
+                message = waiting.message or ""
+
+                if reason in image_pull_reasons:
+                    return (
+                        f"Rollout failed on pod '{pod_name}' ({reason}). "
+                        f"Image '{expected_image}' is likely missing in the local cluster. "
+                        f"Build and load it first: make demo-image VERSION={expected_image.removeprefix('demo-app:')} "
+                        f"&& make demo-load VERSION={expected_image.removeprefix('demo-app:')}. "
+                        f"{message}".strip()
+                    )
+                if reason in crash_reasons:
+                    return (
+                        f"Rollout failed on pod '{pod_name}' ({reason}). "
+                        f"Check pod logs and probe configuration. "
+                        f"{message}".strip()
+                    )
+        return None
 
     def toggle_readiness_failure(self, fail: bool) -> ActionResponse:
         self._ensure_clients()
