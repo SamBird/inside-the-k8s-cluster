@@ -55,6 +55,18 @@ Or run full live-demo orchestration in one command:
 make demo-all VERSION=v1
 ```
 
+For presentation baseline reset:
+
+```bash
+make golden-reset
+```
+
+For rehearsal readiness checks:
+
+```bash
+make rehearsal-check
+```
+
 `demo-all` will try to start Colima automatically if Docker is installed but the daemon is not reachable.
 Disable that behavior with:
 
@@ -162,7 +174,7 @@ make cluster-reset
 
 - No auth/RBAC abstraction in the app; this is intentionally a local teaching tool.
 - Rollout to a new version expects the image tag to exist locally and be loadable into kind.
-- Traffic panel depends on service port-forward (`localhost:8080`) for browser access.
+- Traffic panel depends on backend `GET /api/traffic/info`; it returns a clear warning until demo-app has ready endpoints.
 - SSE timeline currently follows pod-level events and state snapshots, not full Kubernetes event history.
 - Local clusters do not expose rich per-component control-plane telemetry here; control-plane internals are taught conceptually and paired with discovered cluster metadata.
 
@@ -187,6 +199,8 @@ For repository contributors and Codex-assisted changes:
 ## Talk Assets
 
 - Architecture: [docs/architecture.md](docs/architecture.md)
+- Presentation runbook: [docs/presentation-runbook.md](docs/presentation-runbook.md)
+- Rehearsal checklist: [docs/rehearsal-checklist.md](docs/rehearsal-checklist.md)
 - Demo script: [docs/demo-script.md](docs/demo-script.md)
 - Speaker notes: [docs/speaker-notes.md](docs/speaker-notes.md)
 - Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)

@@ -82,6 +82,26 @@ kubectl --context kind-inside-k8s top nodes
 
 If `kubectl top nodes` fails initially, wait briefly and retry while metrics-server finishes startup.
 
+## 6b. Rehearsal readiness
+
+Return to known-good baseline:
+
+```bash
+make golden-reset
+```
+
+Run automated rehearsal checks:
+
+```bash
+make rehearsal-check
+```
+
+If backend/frontend are not already running, start full stack first:
+
+```bash
+make demo-all VERSION=v1
+```
+
 ## 7. Tear down
 
 ```bash
