@@ -34,6 +34,7 @@ import {
 } from "../lib/types";
 
 const trafficTargetLabel = "Backend proxy -> /api/traffic/info -> service/demo-app";
+const maxTrafficRows = 500;
 
 const defaultDesired: DesiredState = {
   deployed: false,
@@ -195,7 +196,7 @@ export default function DashboardPage() {
         });
       }
 
-      setTrafficEvents((existing) => [...additions.slice(0, 1), ...existing].slice(0, 80));
+      setTrafficEvents((existing) => [...additions.slice(0, 1), ...existing].slice(0, maxTrafficRows));
 
       if (index < trafficCount - 1) {
         await delay(Math.max(0, trafficDelayMs));
