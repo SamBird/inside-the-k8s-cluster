@@ -50,6 +50,21 @@ Whenever you change code:
 - verify manifests for obvious errors
 - document anything not validated
 
+## Git workflow policy
+- Create commits at coherent checkpoints, not after every tiny edit.
+- Preferred checkpoints include:
+  - completed milestone
+  - logically grouped feature
+  - meaningful bug fix
+  - documentation update aligned with related code changes
+- Do not commit broken or half-finished work, speculative scaffolding, or unrelated mixed changes.
+- Before committing:
+  - check `git status`
+  - run relevant validation where practical (tests, lint, type checks, and targeted smoke checks)
+- Use clear, human-readable commit messages; prefer conventional style when suitable.
+- Prefer multiple small commits over one large commit when work naturally breaks into stages.
+- If a commit cannot be created due to sandbox, permissions, or approval requirements, report that clearly and continue with uncommitted changes.
+
 ## Deliverables
 - working code
 - scripts

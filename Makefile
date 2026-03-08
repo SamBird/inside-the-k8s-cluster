@@ -7,7 +7,7 @@ NAMESPACE ?= inside-k8s-demo
 VERSION ?= v1
 NEW_VERSION ?= v2
 
-.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up backend-install backend-run frontend-install frontend-run
+.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-stop backend-install backend-run frontend-install frontend-run
 
 help:
 	@echo "Targets:"
@@ -24,6 +24,9 @@ help:
 	@echo "  make demo-rollout NEW_VERSION=v2  Roll Deployment image + APP_VERSION"
 	@echo "  make demo-status             Show demo namespace resources"
 	@echo "  make demo-up VERSION=v1      Build, load, deploy, and show demo status"
+	@echo "  make demo-all VERSION=v1     One-command end-to-end live-demo orchestration"
+	@echo "                               (set AUTO_START_COLIMA=0 to disable colima auto-start)"
+	@echo "  make demo-stop               Stop local backend/frontend processes started by demo-all"
 	@echo "  make backend-install         Create backend venv and install requirements"
 	@echo "  make backend-run             Run backend API on :8000"
 	@echo "  make frontend-install        Install frontend dependencies"
@@ -73,6 +76,12 @@ demo-status:
 	@kubectl --context $(KUBE_CONTEXT) -n $(NAMESPACE) get deploy,po,svc,cm
 
 demo-up: demo-image demo-load demo-deploy demo-wait demo-status
+
+demo-all:
+	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) ./scripts/demo-all.sh
+
+demo-stop:
+	@./scripts/demo-stop.sh
 
 backend-install:
 	@cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt

@@ -35,6 +35,25 @@ make preflight
 make cluster-up
 ```
 
+Or run full live-demo orchestration in one command:
+
+```bash
+make demo-all VERSION=v1
+```
+
+`demo-all` will try to start Colima automatically if Docker is installed but the daemon is not reachable.
+Disable that behavior with:
+
+```bash
+AUTO_START_COLIMA=0 make demo-all VERSION=v1
+```
+
+To stop local backend/frontend processes started by `demo-all`:
+
+```bash
+make demo-stop
+```
+
 If you use a non-default cluster name:
 
 ```bash
@@ -126,6 +145,17 @@ make cluster-reset
 - Add saved demo “scenes” for one-click transitions between teaching moments.
 - Add lightweight backend integration tests with mocked Kubernetes API responses.
 - Add exportable timeline snapshots for post-talk review.
+
+## Git Workflow
+
+For repository contributors and Codex-assisted changes:
+
+- Commit after coherent milestones (feature slice, meaningful fix, or docs update aligned with code).
+- Do not commit broken/half-finished work or unrelated mixed changes.
+- Check `git status` and run relevant validation before committing where practical.
+- Prefer several small, reviewable commits over one large mixed commit.
+- Use clear commit messages (conventional style is preferred).
+- If commit creation is blocked by permissions/approval constraints, continue safely and report the limitation.
 
 ## Talk Assets
 

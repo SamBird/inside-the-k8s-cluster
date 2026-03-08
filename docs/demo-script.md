@@ -17,6 +17,12 @@ make preflight
 make cluster-up
 ```
 
+If you want to automate all pre-flight steps (including backend/frontend checks), use:
+
+```bash
+make demo-all VERSION=v1
+```
+
 2. Build/load/deploy demo app v1:
 
 ```bash

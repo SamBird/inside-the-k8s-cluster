@@ -10,6 +10,19 @@ Install dependencies listed in `docs/prerequisites.md`.
 make preflight
 ```
 
+One-command alternative for the full presenter flow:
+
+```bash
+make demo-all VERSION=v1
+```
+
+If Docker is installed but not running, `demo-all` will attempt to start Colima automatically.
+To disable auto-start:
+
+```bash
+AUTO_START_COLIMA=0 make demo-all VERSION=v1
+```
+
 ## 3. Create cluster
 
 ```bash
@@ -72,5 +85,6 @@ If `kubectl top nodes` fails initially, wait briefly and retry while metrics-ser
 ## 7. Tear down
 
 ```bash
+make demo-stop
 make cluster-down
 ```

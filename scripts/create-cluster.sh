@@ -30,10 +30,7 @@ require_cmd kind
 require_cmd kubectl
 require_cmd docker
 
-if ! docker info >/dev/null 2>&1; then
-  echo "ERROR: docker daemon is not reachable. Start Docker/Colima and retry." >&2
-  exit 1
-fi
+"$(dirname "$0")/ensure-container-runtime.sh"
 
 if kind get clusters | grep -Fxq "$CLUSTER_NAME"; then
   echo "Cluster '$CLUSTER_NAME' already exists; skipping creation."
