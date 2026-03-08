@@ -14,6 +14,7 @@ import {
   ApiError,
   deletePod,
   deployApp,
+  getTrafficInfo,
   getState,
   resetDemo,
   restartRollout,
@@ -34,7 +35,7 @@ import {
 } from "../lib/types";
 import { ExplainedFlowRun, ExplainedFlowScenario } from "../lib/explainedFlow";
 
-const demoTrafficBaseUrl = process.env.NEXT_PUBLIC_DEMO_APP_BASE_URL ?? "http://localhost:8080";
+const trafficTargetLabel = "Backend proxy -> /api/traffic/info -> service/demo-app";
 
 const defaultDesired: DesiredState = {
   deployed: false,
@@ -235,13 +236,12 @@ export default function DashboardPage() {
 
     for (let index = 0; index < trafficCount; index += 1) {
       try {
-        const response = await fetch(`${demoTrafficBaseUrl}/info?i=${Date.now()}-${index}`, { cache: "no-store" });
-        const body = (await response.json()) as DemoTrafficResponse;
+        const body = (await getTrafficInfo()) as DemoTrafficResponse;
         additions.unshift({
           id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           at: new Date().toISOString(),
-          ok: response.ok,
-          response: response.ok ? body : { error: `HTTP ${response.status}` }
+          ok: true,
+          response: body
         });
       } catch (error) {
         additions.unshift({
@@ -370,7 +370,7 @@ export default function DashboardPage() {
 
         <div className="reveal-6">
           <TrafficPanel
-            trafficTarget={demoTrafficBaseUrl}
+            trafficTarget={trafficTargetLabel}
             requestCount={trafficCount}
             delayMs={trafficDelayMs}
             running={trafficRunning}

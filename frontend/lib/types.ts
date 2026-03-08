@@ -89,6 +89,7 @@ export interface DemoTrafficResponse {
   requestCount?: number;
   readiness?: boolean;
   path?: string;
+  source?: string;
   error?: string;
 }
 

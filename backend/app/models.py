@@ -89,3 +89,15 @@ class SSEEnvelope(BaseModel):
     type: Literal["state", "error"]
     state: ClusterState | None = None
     message: str | None = None
+
+
+class TrafficInfoResponse(BaseModel):
+    podName: str | None = None
+    nodeName: str | None = None
+    namespace: str | None = None
+    podIP: str | None = None
+    imageVersion: str | None = None
+    requestCount: int | None = None
+    readiness: bool | None = None
+    path: str | None = None
+    source: Literal["service-proxy"] = "service-proxy"

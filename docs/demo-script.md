@@ -23,6 +23,11 @@ make cluster-up
 make demo-up VERSION=v1
 make backend-install && make backend-run
 make frontend-install && make frontend-run
+```
+
+Optional direct manual service check:
+
+```bash
 kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
 ```
 
@@ -71,6 +76,7 @@ make demo-load VERSION=v2
 
 8. **Optional traffic panel**
 - Click `Generate traffic` to show request distribution and response metadata (`podName`, `nodeName`, `imageVersion`, `readiness`).
+- Traffic generation now uses backend service proxy by default; port-forward is optional for direct manual checks.
 
 9. **Reset**
 - Click `Reset demo` to restore known baseline.

@@ -4,7 +4,15 @@ from fastapi.responses import StreamingResponse
 from kubernetes.client import ApiException
 
 from .k8s_service import BackendError, KubernetesService
-from .models import ActionResponse, ClusterState, DeletePodRequest, RolloutRequest, ScaleRequest, ToggleReadinessRequest
+from .models import (
+    ActionResponse,
+    ClusterState,
+    DeletePodRequest,
+    RolloutRequest,
+    ScaleRequest,
+    ToggleReadinessRequest,
+    TrafficInfoResponse,
+)
 
 app = FastAPI(title="inside-the-k8s backend", version="0.1.0")
 service = KubernetesService()
@@ -44,6 +52,16 @@ def events() -> StreamingResponse:
     except ApiException as exc:
         raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
     return StreamingResponse(service.sse_state_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/traffic/info", response_model=TrafficInfoResponse)
+def traffic_info() -> TrafficInfoResponse:
+    try:
+        return TrafficInfoResponse(**service.get_demo_traffic_info())
+    except BackendError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ApiException as exc:
+        raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
 
 
 @app.post("/api/actions/deploy", response_model=ActionResponse)

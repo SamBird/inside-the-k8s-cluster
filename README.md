@@ -122,7 +122,7 @@ make frontend-install
 make frontend-run
 ```
 
-Expose in-cluster service for browser-based traffic generation:
+Optional: expose in-cluster service for direct manual checks:
 
 ```bash
 kubectl --context kind-inside-k8s -n inside-k8s-demo port-forward svc/demo-app 8080:80

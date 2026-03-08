@@ -84,6 +84,41 @@ class KubernetesService:
             updated_at=datetime.now(timezone.utc),
         )
 
+    def get_demo_traffic_info(self) -> dict:
+        self._ensure_clients()
+        assert self.core is not None
+        try:
+            raw = self.core.connect_get_namespaced_service_proxy_with_path(
+                name=self.cfg.service_name,
+                namespace=self.cfg.namespace,
+                path="info",
+            )
+        except ApiException as exc:
+            if exc.status == 404:
+                raise BackendError(f"Service '{self.cfg.service_name}' not found in namespace '{self.cfg.namespace}'")
+            if exc.status == 503:
+                raise BackendError("Demo service has no ready endpoints yet")
+            raise
+
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise BackendError(f"Demo service returned invalid JSON: {exc}") from exc
+        elif isinstance(raw, dict):
+            parsed = raw
+        else:
+            raise BackendError(f"Unexpected demo service response type: {type(raw).__name__}")
+
+        if not isinstance(parsed, dict):
+            raise BackendError("Demo service response is not a JSON object")
+
+        parsed["source"] = "service-proxy"
+        return parsed
+
     def _get_nodes_state(self) -> list[NodeState]:
         assert self.core is not None
         nodes = self.core.list_node()

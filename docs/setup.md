@@ -66,7 +66,7 @@ make frontend-install
 make frontend-run
 ```
 
-Terminal 3 (for traffic panel):
+Optional terminal (for direct manual demo-app checks):
 
 ```bash
 kubectl -n inside-k8s-demo port-forward svc/demo-app 8080:80

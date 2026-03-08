@@ -100,11 +100,26 @@ Symptoms:
 
 Fix:
 
+- ensure backend is reachable (`curl -s http://localhost:8000/healthz`)
+- verify service + endpoints exist:
+
 ```bash
-kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
+kubectl --context "$KCTX" -n inside-k8s-demo get svc demo-app
+kubectl --context "$KCTX" -n inside-k8s-demo get endpoints demo-app
 ```
 
-Ensure `NEXT_PUBLIC_DEMO_APP_BASE_URL=http://localhost:8080`.
+- if no ready endpoints yet, wait for readiness/rollout:
+
+```bash
+kubectl --context "$KCTX" -n inside-k8s-demo rollout status deployment/demo-app
+```
+
+Optional manual direct check via port-forward:
+
+```bash
+kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
+curl -s http://localhost:8080/info
+```
 
 ## 7) Controller reconciliation scenario does not recover
 
@@ -153,7 +168,6 @@ make demo-deploy
 
 - Designed for local single-user demo, not multi-tenant production.
 - No authentication or authorization model in frontend/backend.
-- Uses service port-forward for browser traffic tests (not ingress).
 - SSE stream is state-oriented and does not persist historical event logs.
 - Control-plane component cards and explained flow are educational models, not low-level process telemetry.
 - Control-plane node discovery depends on labels visible in the current cluster and context.
