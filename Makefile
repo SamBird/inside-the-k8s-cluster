@@ -24,7 +24,7 @@ help:
 	@echo "  make demo-wait               Wait for demo deployment rollout"
 	@echo "  make demo-rollout NEW_VERSION=v2  Roll Deployment image + APP_VERSION"
 	@echo "  make demo-status             Show demo namespace resources"
-	@echo "  make demo-up VERSION=v1      Build, load, deploy, and show demo status"
+	@echo "  make demo-up VERSION=v1      Build, load, and reset demo to known-good baseline"
 	@echo "  make demo-all VERSION=v1     One-command end-to-end live-demo orchestration"
 	@echo "                               preloads rollout tags (default PRELOAD_ROLLOUT_VERSIONS=v2)"
 	@echo "                               (set AUTO_START_COLIMA=0 to disable colima auto-start)"
@@ -81,7 +81,8 @@ demo-rollout:
 demo-status:
 	@kubectl --context $(KUBE_CONTEXT) -n $(NAMESPACE) get deploy,po,svc,cm
 
-demo-up: demo-image demo-load demo-deploy demo-wait demo-status
+demo-up:
+	@$(MAKE) golden-reset VERSION=$(VERSION)
 
 demo-all:
 	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) NAMESPACE=$(NAMESPACE) VERSION=$(VERSION) PRELOAD_ROLLOUT_VERSIONS=$(PRELOAD_ROLLOUT_VERSIONS) ./scripts/demo-all.sh

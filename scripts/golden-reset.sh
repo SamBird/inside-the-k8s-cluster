@@ -35,8 +35,30 @@ step "Forcing golden configuration (v1, replicas=1, readiness healthy)"
 kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" patch configmap demo-app-config --type merge \
   -p '{"data":{"APP_VERSION":"'"$VERSION"'","INITIAL_READINESS":"true"}}' >/dev/null
 kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" set image deployment/demo-app demo-app="demo-app:${VERSION}" >/dev/null
+kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" scale deployment/demo-app --replicas=0 >/dev/null
+
+step "Waiting for existing demo pods to terminate"
+pods_gone="false"
+for _ in $(seq 1 60); do
+  pod_count="$(
+    kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" get pods -l app.kubernetes.io/name=demo-app --no-headers 2>/dev/null \
+      | wc -l | tr -d ' '
+  )"
+  if [[ "$pod_count" == "0" ]]; then
+    pods_gone="true"
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$pods_gone" != "true" ]]; then
+  echo "[error] Demo pods did not terminate while resetting baseline." >&2
+  kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" get pods -l app.kubernetes.io/name=demo-app >&2 || true
+  exit 1
+fi
+
+step "Restoring single baseline replica"
 kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" scale deployment/demo-app --replicas=1 >/dev/null
-kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" rollout restart deployment/demo-app >/dev/null
 
 step "Waiting for rollout"
 kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/demo-app --timeout=240s >/dev/null

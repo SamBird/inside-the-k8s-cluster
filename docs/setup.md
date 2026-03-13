@@ -51,7 +51,7 @@ make demo-deploy
 make demo-status
 ```
 
-Equivalent shortcut:
+Equivalent shortcut that also forces a clean baseline if a previous rollout was left mid-flight:
 
 ```bash
 make demo-up VERSION=v1
