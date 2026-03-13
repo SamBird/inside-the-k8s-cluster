@@ -564,35 +564,41 @@ class KubernetesService:
                 f"(status={exc.status}, reason={exc.reason})"
             ) from exc
 
-    def _set_running_pods_readiness(self, running_pods: list[client.V1Pod], fail: bool) -> None:
-        for pod in running_pods:
-            self._proxy_pod_readiness_change(pod.metadata.name, fail=fail)
+    def _choose_readiness_failure_target(self, running_pods: list[client.V1Pod]) -> client.V1Pod:
+        already_unready = [pod for pod in running_pods if not self._pod_is_ready(pod)]
+        candidates = already_unready or [pod for pod in running_pods if self._pod_is_ready(pod)]
+        if not candidates:
+            raise BackendError("No running demo-app pods found to change readiness on")
+        return sorted(
+            candidates,
+            key=lambda pod: (
+                pod.metadata.creation_timestamp or datetime.max.replace(tzinfo=timezone.utc),
+                pod.metadata.name,
+            ),
+        )[0]
 
-    def _restore_readiness_baseline(self, running_pods: list[client.V1Pod], config_ready: bool) -> None:
-        assert self.core is not None
-        readiness_value = "true" if config_ready else "false"
-        try:
-            self.core.patch_namespaced_config_map(
-                name=self.cfg.configmap_name,
-                namespace=self.cfg.namespace,
-                body={"data": {"INITIAL_READINESS": readiness_value}},
-            )
-        except Exception:
-            pass
+    def _set_expected_pod_readiness(self, expected_by_pod: dict[str, bool]) -> None:
+        for pod_name, should_be_ready in expected_by_pod.items():
+            self._proxy_pod_readiness_change(pod_name, fail=not should_be_ready)
 
+    def _restore_previous_pod_readiness(self, previous_by_pod: dict[str, bool]) -> None:
         try:
-            self._set_running_pods_readiness(running_pods, fail=not config_ready)
-            self._wait_for_pod_readiness(
-                pod_names={pod.metadata.name for pod in running_pods},
-                expected_ready=config_ready,
+            self._set_expected_pod_readiness(previous_by_pod)
+            self._wait_for_expected_pod_readiness(
+                expected_by_pod=previous_by_pod,
                 timeout_seconds=10,
             )
         except Exception:
             pass
 
-    def _wait_for_pod_readiness(self, pod_names: set[str], expected_ready: bool, timeout_seconds: int = 20) -> None:
+    def _wait_for_expected_pod_readiness(
+        self,
+        expected_by_pod: dict[str, bool],
+        timeout_seconds: int = 20,
+    ) -> None:
         assert self.core is not None
         deadline = time.time() + timeout_seconds
+        pod_names = set(expected_by_pod)
 
         while time.time() < deadline:
             pods = self.core.list_namespaced_pod(
@@ -604,13 +610,18 @@ class KubernetesService:
                 for pod in pods
                 if pod.metadata and pod.metadata.name in pod_names
             }
-            if current.keys() == pod_names and all(is_ready == expected_ready for is_ready in current.values()):
+            if current.keys() == pod_names and all(
+                current[pod_name] == expected_by_pod[pod_name] for pod_name in sorted(pod_names)
+            ):
                 return
             time.sleep(1)
 
-        expected_label = "Ready" if expected_ready else "NotReady"
+        expected_label = ", ".join(
+            f"{pod_name}={'Ready' if expected_by_pod[pod_name] else 'NotReady'}"
+            for pod_name in sorted(pod_names)
+        )
         raise BackendError(
-            f"Timed out waiting for pods to become {expected_label}. "
+            f"Timed out waiting for pod readiness to converge ({expected_label}). "
             "The container state changed, but kubelet readiness probes did not converge in time."
         )
 
@@ -785,33 +796,49 @@ class KubernetesService:
     def toggle_readiness_failure(self, fail: bool) -> ActionResponse:
         self._ensure_clients()
         self._ensure_deployment_exists()
-        self._ensure_configmap_exists()
-        assert self.core is not None
 
         running_pods = self._get_running_demo_pods()
         if not running_pods:
             raise BackendError("No running demo-app pods found to change readiness on")
 
-        previous_config = self._get_config_state()
-        previous_readiness = previous_config.initial_readiness if previous_config is not None else True
-        readiness_value = "false" if fail else "true"
+        previous_by_pod = {
+            pod.metadata.name: self._pod_is_ready(pod)
+            for pod in running_pods
+            if pod.metadata and pod.metadata.name
+        }
+        if not previous_by_pod:
+            raise BackendError("No running demo-app pods found to change readiness on")
+
+        if fail:
+            target_pod = self._choose_readiness_failure_target(running_pods)
+            expected_by_pod = {
+                pod.metadata.name: pod.metadata.name != target_pod.metadata.name
+                for pod in running_pods
+                if pod.metadata and pod.metadata.name
+            }
+            success_message = (
+                f"Marked pod {target_pod.metadata.name} NotReady while leaving other running pods Ready"
+            )
+        else:
+            expected_by_pod = {pod_name: True for pod_name in previous_by_pod}
+            success_message = "Restored readiness on running demo-app pods without rollout"
+
+        if previous_by_pod == expected_by_pod:
+            return ActionResponse(
+                action="toggle_readiness_failure",
+                message=success_message,
+                state=self.get_state(),
+            )
+
         try:
-            self.core.patch_namespaced_config_map(
-                name=self.cfg.configmap_name,
-                namespace=self.cfg.namespace,
-                body={"data": {"INITIAL_READINESS": readiness_value}},
-            )
-            self._set_running_pods_readiness(running_pods, fail=fail)
-            self._wait_for_pod_readiness(
-                pod_names={pod.metadata.name for pod in running_pods},
-                expected_ready=not fail,
-            )
+            self._set_expected_pod_readiness(expected_by_pod)
+            self._wait_for_expected_pod_readiness(expected_by_pod=expected_by_pod)
         except Exception:
-            self._restore_readiness_baseline(running_pods, config_ready=previous_readiness)
+            self._restore_previous_pod_readiness(previous_by_pod)
             raise
         return ActionResponse(
             action="toggle_readiness_failure",
-            message=f"Set INITIAL_READINESS={readiness_value} and updated running pod readiness without rollout",
+            message=success_message,
             state=self.get_state(),
         )
 

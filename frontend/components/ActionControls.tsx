@@ -74,7 +74,7 @@ export function ActionControls({
             <span className="action-stage-step">02</span>
             <div>
               <h3>Create drift</h3>
-              <p>Trigger pod churn and readiness failures to expose reconciliation.</p>
+              <p>Trigger pod churn and single-pod readiness failures to expose reconciliation and routing.</p>
             </div>
           </div>
           <div className="action-grid">

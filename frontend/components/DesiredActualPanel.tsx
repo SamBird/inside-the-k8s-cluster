@@ -14,11 +14,13 @@ interface CompareRow {
 }
 
 export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps) {
+  const expectedReadyPods = desired.deployed ? desired.replicas : 0;
   const actualValues = {
     deployed: actual?.deployment.exists ?? false,
     replicas: actual?.deployment.replicas ?? 0,
     version: actual?.config?.app_version ?? "unknown",
-    readinessHealthy: actual?.config?.initial_readiness ?? false
+    readinessHealthy: actual?.config?.initial_readiness ?? false,
+    readyPods: actual?.deployment.ready_replicas ?? 0
   };
 
   const rows: CompareRow[] = [
@@ -41,7 +43,13 @@ export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps)
       match: desired.version === actualValues.version
     },
     {
-      label: "Initial readiness",
+      label: "Traffic-eligible pods",
+      desired: String(expectedReadyPods),
+      actual: String(actualValues.readyPods),
+      match: expectedReadyPods === actualValues.readyPods
+    },
+    {
+      label: "Startup readiness policy",
       desired: desired.readinessHealthy ? "Healthy" : "Failing",
       actual: actualValues.readinessHealthy ? "Healthy" : "Failing",
       match: desired.readinessHealthy === actualValues.readinessHealthy
@@ -89,7 +97,7 @@ export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps)
         <h3>Readiness semantics</h3>
         <p>
           A pod can be <strong>Running</strong> and still be <strong>Not Ready</strong>. Service load balancing should include only Ready
-          pods.
+          pods, so one failing pod can drop out while traffic continues through healthy replicas.
         </p>
       </div>
     </section>

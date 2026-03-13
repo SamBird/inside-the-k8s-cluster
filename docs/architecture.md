@@ -84,7 +84,7 @@ Resources:
 - `Service/demo-app`
 - `ConfigMap/demo-app-config`
 
-Readiness behavior is controlled by `INITIAL_READINESS` in ConfigMap for future pods and by direct admin calls on currently running pods, so the demo shows readiness changes without creating a new ReplicaSet.
+Readiness behavior for the live demo is changed through direct admin calls on currently running pods, so one pod can become `NotReady` without creating a new ReplicaSet or changing future pod startup policy.
 
 ## Safety and Predictability Choices
 

@@ -57,6 +57,21 @@ export function diffState(prev: ClusterState | null, next: ClusterState): Timeli
     }
   }
 
+  const prevReadinessByPod = new Map(prev.pods.map((pod) => [pod.name, pod.ready]));
+  for (const pod of next.pods) {
+    const previousReady = prevReadinessByPod.get(pod.name);
+    if (previousReady === undefined || previousReady === pod.ready) {
+      continue;
+    }
+    out.push(
+      event(
+        pod.ready ? "success" : "warn",
+        "Pod readiness changed",
+        `${pod.name}: ${previousReady ? "Ready" : "Not Ready"} -> ${pod.ready ? "Ready" : "Not Ready"}`
+      )
+    );
+  }
+
   if (prev.config?.app_version !== next.config?.app_version && next.config?.app_version) {
     out.push(
       event(

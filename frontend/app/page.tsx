@@ -148,12 +148,14 @@ export default function DashboardPage() {
   const readyPods = state?.pods.filter((pod) => pod.ready).length ?? 0;
   const failingPods = state?.pods.filter((pod) => !pod.ready).length ?? 0;
   const workerCount = state?.nodes.filter((node) => node.role !== "control-plane").length ?? 0;
+  const expectedReadyPods = desired.deployed ? desired.replicas : 0;
   const driftCount = state
     ? [
         desired.deployed !== state.deployment.exists,
         desired.replicas !== state.deployment.replicas,
         desired.version !== (state.config?.app_version ?? "unknown"),
-        desired.readinessHealthy !== (state.config?.initial_readiness ?? false)
+        desired.readinessHealthy !== (state.config?.initial_readiness ?? false),
+        state.deployment.ready_replicas !== expectedReadyPods
       ].filter(Boolean).length
     : 0;
   const clusterTone = !state
@@ -311,12 +313,8 @@ export default function DashboardPage() {
             onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
             onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
             onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
-            onBreakReadiness={() =>
-              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false })
-            }
-            onRestoreReadiness={() =>
-              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true })
-            }
+            onBreakReadiness={() => runAction("Break readiness", () => toggleReadiness(true))}
+            onRestoreReadiness={() => runAction("Restore readiness", () => toggleReadiness(false))}
             onRollout={() => {
               const tag = rolloutTag.trim();
               if (!tag) {

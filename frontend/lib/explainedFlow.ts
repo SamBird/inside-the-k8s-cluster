@@ -235,37 +235,37 @@ export const explainedFlowScenarios: ExplainedFlowScenarioDefinition[] = [
   {
     key: "break-readiness",
     label: "Break readiness",
-    summary: "Pods can still run while readiness fails; Service traffic eligibility changes immediately.",
+    summary: "One pod can stay Running while failing readiness; Service traffic shifts to the remaining healthy endpoints.",
     steps: [
       {
         id: "ready-1",
         title: "Readiness-toggle request to kube-apiserver",
-        detail: "Backend updates demo config for future pods and calls running pod admin endpoints."
+        detail: "Backend picks one running pod and calls its admin readiness endpoint without changing the Deployment template."
       },
       {
         id: "ready-2",
-        title: "Desired readiness policy stored in etcd",
-        detail: "ConfigMap reflects future startup behavior without changing the Deployment template."
+        title: "Desired replica count stays the same",
+        detail: "Deployment and ReplicaSet intent remain at the same size; this is a live pod health change, not a rollout."
       },
       {
         id: "ready-3",
         title: "Running pods stay on the same ReplicaSet",
-        detail: "No rollout is required; existing pod processes keep running while readiness state changes in place."
+        detail: "No new Pod is created; the chosen pod keeps running on its worker node while readiness changes in place."
       },
       {
         id: "ready-4",
-        title: "Pods continue running on worker nodes",
-        detail: "kubelet keeps containers alive unless liveness fails; readiness is a separate signal."
+        title: "Other pods remain healthy",
+        detail: "kubelet keeps the unhealthy pod alive unless liveness fails; the other replicas stay Ready."
       },
       {
         id: "ready-5",
-        title: "Readiness fails at kubelet endpoint reporting",
-        detail: "Pod readiness condition becomes false during probe checks."
+        title: "One pod drops out of readiness",
+        detail: "Only the selected Pod flips to NotReady during probe checks."
       },
       {
         id: "ready-6",
-        title: "Service removes unready endpoints",
-        detail: "Traffic is withheld from unready pods even if process is still Running."
+        title: "Service removes that endpoint",
+        detail: "Traffic bypasses the unready Pod even though its process is still Running."
       }
     ]
   },

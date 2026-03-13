@@ -56,8 +56,8 @@ kubectl --context "$KCTX" -n inside-k8s-demo port-forward svc/demo-app 8080:80
 - Show desired replicas unchanged while actual running/ready temporarily diverge and then converge.
 
 5. **Readiness vs Running**
-- Click `Break readiness`, then `Restore readiness`.
-- Explain that Running is process state; Ready is traffic eligibility.
+- Click `Break readiness`, then `Generate traffic`, then `Restore readiness`.
+- Explain that one pod can stay Running while dropping out of Service endpoints, so traffic continues through the healthy replicas.
 
 6. **Scaling behavior**
 - Click `Scale to 3`, then `Scale to 1`.
