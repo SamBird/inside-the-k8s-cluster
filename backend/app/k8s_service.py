@@ -530,6 +530,64 @@ class KubernetesService:
             state=self.get_state(),
         )
 
+    @staticmethod
+    def _pod_is_ready(pod: client.V1Pod) -> bool:
+        statuses = pod.status.container_statuses if pod.status else None
+        if not statuses:
+            return False
+        return all(container_status.ready for container_status in statuses)
+
+    def _get_running_demo_pods(self) -> list[client.V1Pod]:
+        assert self.core is not None
+        pods = self.core.list_namespaced_pod(
+            namespace=self.cfg.namespace,
+            label_selector=self.cfg.app_label,
+        ).items
+        return sorted(
+            [pod for pod in pods if pod.status and pod.status.phase == "Running"],
+            key=lambda pod: pod.metadata.name,
+        )
+
+    def _proxy_pod_readiness_change(self, pod_name: str, fail: bool) -> None:
+        assert self.core is not None
+        path = "/admin/readiness/fail" if fail else "/admin/readiness/restore"
+        try:
+            self.core.connect_post_namespaced_pod_proxy(
+                name=pod_name,
+                namespace=self.cfg.namespace,
+                path=path,
+                _request_timeout=(2, 5),
+            )
+        except ApiException as exc:
+            raise BackendError(
+                f"Failed to update readiness on pod '{pod_name}' via pod proxy "
+                f"(status={exc.status}, reason={exc.reason})"
+            ) from exc
+
+    def _wait_for_pod_readiness(self, pod_names: set[str], expected_ready: bool, timeout_seconds: int = 20) -> None:
+        assert self.core is not None
+        deadline = time.time() + timeout_seconds
+
+        while time.time() < deadline:
+            pods = self.core.list_namespaced_pod(
+                namespace=self.cfg.namespace,
+                label_selector=self.cfg.app_label,
+            ).items
+            current = {
+                pod.metadata.name: self._pod_is_ready(pod)
+                for pod in pods
+                if pod.metadata and pod.metadata.name in pod_names
+            }
+            if current.keys() == pod_names and all(is_ready == expected_ready for is_ready in current.values()):
+                return
+            time.sleep(1)
+
+        expected_label = "Ready" if expected_ready else "NotReady"
+        raise BackendError(
+            f"Timed out waiting for pods to become {expected_label}. "
+            "The container state changed, but kubelet readiness probes did not converge in time."
+        )
+
     def restart_rollout(self) -> ActionResponse:
         self._ensure_clients()
         self._ensure_deployment_exists()
@@ -700,8 +758,14 @@ class KubernetesService:
 
     def toggle_readiness_failure(self, fail: bool) -> ActionResponse:
         self._ensure_clients()
+        self._ensure_deployment_exists()
         self._ensure_configmap_exists()
         assert self.core is not None
+
+        running_pods = self._get_running_demo_pods()
+        if not running_pods:
+            raise BackendError("No running demo-app pods found to change readiness on")
+
         readiness_value = "false" if fail else "true"
         patch = {"data": {"INITIAL_READINESS": readiness_value}}
         self.core.patch_namespaced_config_map(
@@ -709,10 +773,15 @@ class KubernetesService:
             namespace=self.cfg.namespace,
             body=patch,
         )
-        self.restart_rollout()
+        for pod in running_pods:
+            self._proxy_pod_readiness_change(pod.metadata.name, fail=fail)
+        self._wait_for_pod_readiness(
+            pod_names={pod.metadata.name for pod in running_pods},
+            expected_ready=not fail,
+        )
         return ActionResponse(
             action="toggle_readiness_failure",
-            message=f"Set INITIAL_READINESS={readiness_value} and restarted rollout",
+            message=f"Set INITIAL_READINESS={readiness_value} and updated running pod readiness without rollout",
             state=self.get_state(),
         )
 

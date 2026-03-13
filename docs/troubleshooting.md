@@ -149,8 +149,8 @@ Fix:
 
 ```bash
 curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":false}'
-kubectl --context "$KCTX" -n inside-k8s-demo rollout status deployment/demo-app
 kubectl --context "$KCTX" -n inside-k8s-demo get pods
+kubectl --context "$KCTX" -n inside-k8s-demo get endpoints demo-app
 ```
 
 ## 9) Need a hard reset before next run

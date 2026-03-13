@@ -84,7 +84,7 @@ Resources:
 - `Service/demo-app`
 - `ConfigMap/demo-app-config`
 
-Readiness behavior is controlled by `INITIAL_READINESS` in ConfigMap and demonstrated through rollout transitions.
+Readiness behavior is controlled by `INITIAL_READINESS` in ConfigMap for future pods and by direct admin calls on currently running pods, so the demo shows readiness changes without creating a new ReplicaSet.
 
 ## Safety and Predictability Choices
 

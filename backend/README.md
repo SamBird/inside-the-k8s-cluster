@@ -36,4 +36,4 @@ uvicorn app.main:app --reload --port 8000
 - actions are namespace-scoped to `inside-k8s-demo`
 - scale requests are validated (`1..10`)
 - restart uses Deployment annotation patch (same as `kubectl rollout restart` semantics)
-- readiness toggle uses ConfigMap + rollout restart for deterministic behavior
+- readiness toggle updates ConfigMap for future pods and flips readiness on running pods without a rollout

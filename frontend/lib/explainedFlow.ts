@@ -240,17 +240,17 @@ export const explainedFlowScenarios: ExplainedFlowScenarioDefinition[] = [
       {
         id: "ready-1",
         title: "Readiness-toggle request to kube-apiserver",
-        detail: "Backend updates demo config that drives readiness behavior."
+        detail: "Backend updates demo config for future pods and calls running pod admin endpoints."
       },
       {
         id: "ready-2",
-        title: "Desired probe behavior stored in etcd",
-        detail: "ConfigMap and pod template inputs reflect readiness-fail intent."
+        title: "Desired readiness policy stored in etcd",
+        detail: "ConfigMap reflects future startup behavior without changing the Deployment template."
       },
       {
         id: "ready-3",
-        title: "Controllers roll or restart Pods as needed",
-        detail: "Deployment reconciliation applies new template/config state to Pods."
+        title: "Running pods stay on the same ReplicaSet",
+        detail: "No rollout is required; existing pod processes keep running while readiness state changes in place."
       },
       {
         id: "ready-4",
