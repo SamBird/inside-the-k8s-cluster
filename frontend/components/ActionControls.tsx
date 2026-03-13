@@ -40,11 +40,11 @@ export function ActionControls({
   return (
     <section className="panel action-panel">
       <div className="panel-header-row">
-        <h2>Demo Command Deck</h2>
-        <span className="muted">High-signal actions for the live namespace</span>
+        <h2>Presenter Controls</h2>
+        <span className="muted">Safe, predictable operations against the demo namespace</span>
       </div>
       <p className="presenter-guidance">
-        Suggested live rhythm: deploy, create tension, let Kubernetes recover, then prove service behavior under traffic.
+        Suggested live flow: deploy, create drift, show recovery, then prove service behavior under traffic.
       </p>
 
       <div className="action-stage-grid">
@@ -52,8 +52,8 @@ export function ActionControls({
           <div className="action-stage-header">
             <span className="action-stage-step">01</span>
             <div>
-              <h3>Launch</h3>
-              <p>Establish the workload and adjust replica count.</p>
+              <h3>Set up</h3>
+              <p>Start the demo workload and control the replica count.</p>
             </div>
           </div>
           <div className="action-grid">
@@ -73,7 +73,7 @@ export function ActionControls({
           <div className="action-stage-header">
             <span className="action-stage-step">02</span>
             <div>
-              <h3>Disrupt</h3>
+              <h3>Create drift</h3>
               <p>Trigger pod churn and readiness failures to expose reconciliation.</p>
             </div>
           </div>
@@ -105,8 +105,8 @@ export function ActionControls({
           <div className="action-stage-header">
             <span className="action-stage-step">03</span>
             <div>
-              <h3>Release</h3>
-              <p>Prove service routing and rollout behavior under live requests.</p>
+              <h3>Prove behavior</h3>
+              <p>Use rollout and traffic to show version changes and service routing.</p>
             </div>
           </div>
           <div className="action-grid">

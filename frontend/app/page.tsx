@@ -6,7 +6,6 @@ import { ActionControls } from "../components/ActionControls";
 import { DesiredActualPanel } from "../components/DesiredActualPanel";
 import { EventTimeline } from "../components/EventTimeline";
 import { PageNav } from "../components/PageNav";
-import { StatusBadge } from "../components/StatusBadge";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
 import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
@@ -173,51 +172,7 @@ export default function DashboardPage() {
     : failingPods > 0
     ? "Attention needed"
     : "Demo healthy";
-  const storyMoments = [
-    {
-      title: "Declare",
-      detail: desired.deployed ? `Target is ${desired.replicas} replica${desired.replicas > 1 ? "s" : ""}` : "Waiting to deploy demo app",
-      tone: desired.deployed ? "ok" : "neutral"
-    },
-    {
-      title: "Reconcile",
-      detail: driftCount === 0 ? "Desired and actual state are aligned" : `${driftCount} drift signal${driftCount > 1 ? "s" : ""} visible`,
-      tone: driftCount === 0 ? "ok" : "warn"
-    },
-    {
-      title: "Serve",
-      detail: `${readyPods}/${state?.pods.length ?? 0} pods ready behind ${state?.service.name ?? "service"}`,
-      tone: readyPods > 0 ? "ok" : "warn"
-    },
-    {
-      title: "Recover",
-      detail: failingPods > 0 ? "Recovery path visible in readiness and pod churn" : "Recovery path ready to demonstrate",
-      tone: failingPods > 0 ? "warn" : "neutral"
-    }
-  ] as const;
-  const scenarioCards = [
-    {
-      eyebrow: "Launch Sequence",
-      title: "Bring the namespace to life",
-      detail: "Deploy, observe ReplicaSet creation, then watch pods land on workers.",
-      badge: state?.deployment.exists ? "App deployed" : "Ready to deploy",
-      tone: state?.deployment.exists ? "ok" : "neutral"
-    },
-    {
-      eyebrow: "Failure Theater",
-      title: "Show resilience under pressure",
-      detail: "Delete a pod or break readiness to surface reconciliation and service protection.",
-      badge: failingPods > 0 ? "Failure active" : "Recovery demo ready",
-      tone: failingPods > 0 ? "warn" : "neutral"
-    },
-    {
-      eyebrow: "Release Story",
-      title: "Scale and roll forward live",
-      detail: "Use traffic plus rollout to show version spread, readiness gates, and steady-state recovery.",
-      badge: desired.version,
-      tone: desired.version === "v1" ? "neutral" : "ok"
-    }
-  ] as const;
+  const versionLabel = state?.config?.app_version ?? desired.version;
 
   const runAction = async (
     actionLabel: string,
@@ -298,151 +253,129 @@ export default function DashboardPage() {
 
   return (
     <main className="page-shell">
-      <header className="hero-header dashboard-hero reveal-1">
+      <header className="hero-header reveal-1">
         <div className="hero-copy">
-          <span className="hero-eyebrow">Live Cluster Theatre</span>
+          <span className="hero-eyebrow">Teaching Demo Dashboard</span>
           <h1>Inside the Kubernetes Cluster</h1>
-          <p>
-            A live control room for explaining how declarative intent becomes running pods, healthy endpoints, and safe
-            recovery inside Kubernetes.
-          </p>
-          <div className="story-rail" aria-label="Demo storyline">
-            {storyMoments.map((moment) => (
-              <article key={moment.title} className="story-card">
-                <span className="story-step">{moment.title}</span>
-                <p>{moment.detail}</p>
-                <StatusBadge tone={moment.tone} label={moment.title} />
-              </article>
-            ))}
-          </div>
+          <p>Presenter-friendly live demo for scheduling, readiness, scaling, rollouts, and recovery inside Kubernetes.</p>
         </div>
         <div className="hero-side">
-          <div className="hero-status hero-status-stack">
+          <div className="hero-status">
             <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
             <span className={`connection-pill connection-cluster-${clusterTone}`}>Cluster: {clusterLabel}</span>
             <span className="connection-pill">Last update: {formatTimestamp(state?.updated_at)}</span>
-          </div>
-          <div className="hero-metrics" aria-label="Cluster summary">
-            <article className="hero-metric-card">
-              <span className="hero-metric-label">Ready Pods</span>
-              <strong>{state ? `${readyPods}/${state.pods.length}` : "--"}</strong>
-            </article>
-            <article className="hero-metric-card">
-              <span className="hero-metric-label">Workers</span>
-              <strong>{state ? workerCount : "--"}</strong>
-            </article>
-            <article className="hero-metric-card">
-              <span className="hero-metric-label">Version</span>
-              <strong>{state?.config?.app_version ?? desired.version}</strong>
-            </article>
-            <article className="hero-metric-card">
-              <span className="hero-metric-label">Drift</span>
-              <strong>{state ? driftCount : "--"}</strong>
-            </article>
-          </div>
-          {busyAction ? (
-            <span className="connection-pill connection-pill-busy" role="status" aria-live="polite">
+            {busyAction ? (
+              <span className="connection-pill connection-pill-busy" role="status" aria-live="polite">
               <span className="inline-spinner" aria-hidden="true" />
               <span>Reconciling: {busyAction}</span>
-            </span>
-          ) : null}
+              </span>
+            ) : null}
+          </div>
         </div>
       </header>
       <PageNav current="dashboard" />
 
-      <section className="scenario-strip reveal-2" aria-label="Demo scenarios">
-        {scenarioCards.map((card) => (
-          <article key={card.title} className="scenario-card">
-            <span className="scenario-eyebrow">{card.eyebrow}</span>
-            <h2>{card.title}</h2>
-            <p>{card.detail}</p>
-            <StatusBadge tone={card.tone} label={card.badge} />
-          </article>
-        ))}
+      <section className="summary-strip reveal-2" aria-label="Live demo summary">
+        <article className="summary-card">
+          <span className="summary-label">Pods Ready</span>
+          <strong>{state ? `${readyPods}/${state.pods.length}` : "--"}</strong>
+          <p>{failingPods > 0 ? `${failingPods} attention signal${failingPods > 1 ? "s" : ""}` : "Service looks healthy"}</p>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Workers</span>
+          <strong>{state ? workerCount : "--"}</strong>
+          <p>{state ? `${state.namespace} namespace in focus` : "Waiting for cluster state"}</p>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Version</span>
+          <strong>{versionLabel}</strong>
+          <p>{desired.version === versionLabel ? "Desired and running version aligned" : "Rollout drift is visible"}</p>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Drift</span>
+          <strong>{state ? driftCount : "--"}</strong>
+          <p>{driftCount === 0 ? "Desired and actual state match" : "Useful for explaining reconciliation"}</p>
+        </article>
       </section>
 
-      <section className="dashboard-grid dashboard-grid-dashboard">
-        <div className="dashboard-main-column">
-          <div className="reveal-2">
-            <ActionControls
-              podOptions={podOptions}
-              selectedPod={selectedPod}
-              rolloutVersion={rolloutTag}
-              busyAction={busyAction}
-              onSelectPod={setSelectedPod}
-              onRolloutVersion={setRolloutTag}
-              onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
-              onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
-              onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
-              onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
-              onBreakReadiness={() =>
-                runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false })
+      <section className="dashboard-grid">
+        <div className="reveal-3">
+          <ActionControls
+            podOptions={podOptions}
+            selectedPod={selectedPod}
+            rolloutVersion={rolloutTag}
+            busyAction={busyAction}
+            onSelectPod={setSelectedPod}
+            onRolloutVersion={setRolloutTag}
+            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
+            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
+            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
+            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
+            onBreakReadiness={() =>
+              runAction("Break readiness", () => toggleReadiness(true), { deployed: true, readinessHealthy: false })
+            }
+            onRestoreReadiness={() =>
+              runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true })
+            }
+            onRollout={() => {
+              const tag = rolloutTag.trim();
+              if (!tag) {
+                setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "Rollout tag is required")]));
+                return;
               }
-              onRestoreReadiness={() =>
-                runAction("Restore readiness", () => toggleReadiness(false), { deployed: true, readinessHealthy: true })
-              }
-              onRollout={() => {
-                const tag = rolloutTag.trim();
-                if (!tag) {
-                  setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "Rollout tag is required")]));
-                  return;
-                }
-                runAction(
-                  `Rollout ${tag}`,
-                  async () => {
-                    try {
-                      return await rolloutVersion(tag);
-                    } catch (error) {
-                      if (error instanceof ApiError && error.status === 404) {
-                        setTimeline((existing) =>
-                          prependTimeline(existing, [
-                            newTimeline("warn", "Backend rollout endpoint missing", "Falling back to restart-rollout action")
-                          ])
-                        );
-                        return await restartRollout();
-                      }
-                      if (error instanceof ApiError) {
-                        throw error;
-                      }
+              runAction(
+                `Rollout ${tag}`,
+                async () => {
+                  try {
+                    return await rolloutVersion(tag);
+                  } catch (error) {
+                    if (error instanceof ApiError && error.status === 404) {
+                      setTimeline((existing) =>
+                        prependTimeline(existing, [
+                          newTimeline("warn", "Backend rollout endpoint missing", "Falling back to restart-rollout action")
+                        ])
+                      );
+                      return await restartRollout();
+                    }
+                    if (error instanceof ApiError) {
                       throw error;
                     }
-                  },
-                  { deployed: true, version: tag }
-                );
-              }}
-              onGenerateTraffic={onGenerateTraffic}
-              onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
-            />
-          </div>
-
-          <div className="reveal-5">
-            <TopologyView state={state} />
-          </div>
-
-          <WorkloadResourcesPanel state={state} />
+                    throw error;
+                  }
+                },
+                { deployed: true, version: tag }
+              );
+            }}
+            onGenerateTraffic={onGenerateTraffic}
+            onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
+          />
         </div>
 
-        <div className="dashboard-side-column">
-          <div className="reveal-4">
-            <DesiredActualPanel desired={desired} actual={state} />
-          </div>
+        <div className="reveal-4">
+          <DesiredActualPanel desired={desired} actual={state} />
+        </div>
 
-          <div className="reveal-6">
-            <TrafficPanel
-              trafficTarget={trafficTargetLabel}
-              requestCount={trafficCount}
-              delayMs={trafficDelayMs}
-              running={trafficRunning}
-              events={trafficEvents}
-              onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
-              onDelayChange={(value) => setTrafficDelayMs(Number.isFinite(value) ? Math.min(3000, Math.max(0, value)) : 120)}
-              onGenerate={onGenerateTraffic}
-            />
-          </div>
+        <div className="layout-span-2 reveal-5">
+          <TopologyView state={state} />
+        </div>
 
-          <div className="reveal-6">
-            <EventTimeline events={timeline} />
-          </div>
+        <WorkloadResourcesPanel state={state} />
+
+        <div className="reveal-6">
+          <TrafficPanel
+            trafficTarget={trafficTargetLabel}
+            requestCount={trafficCount}
+            delayMs={trafficDelayMs}
+            running={trafficRunning}
+            events={trafficEvents}
+            onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
+            onDelayChange={(value) => setTrafficDelayMs(Number.isFinite(value) ? Math.min(3000, Math.max(0, value)) : 120)}
+            onGenerate={onGenerateTraffic}
+          />
+        </div>
+
+        <div className="layout-span-2 reveal-6">
+          <EventTimeline events={timeline} />
         </div>
       </section>
     </main>
