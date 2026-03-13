@@ -40,59 +40,92 @@ export function ActionControls({
   return (
     <section className="panel action-panel">
       <div className="panel-header-row">
-        <h2>Action Controls</h2>
-        <span className="muted">Safe, predictable operations against the demo namespace</span>
+        <h2>Demo Command Deck</h2>
+        <span className="muted">High-signal actions for the live namespace</span>
       </div>
       <p className="presenter-guidance">
-        {"Suggested live order: Deploy -> Delete pod -> Break/Restore readiness -> Scale -> Rollout -> Generate traffic -> Reset (use Teaching View for conceptual scenario walkthroughs)."}
+        Suggested live rhythm: deploy, create tension, let Kubernetes recover, then prove service behavior under traffic.
       </p>
 
-      <div className="action-grid">
-        <button className="action-button" onClick={onDeploy} disabled={disabledIfBusy(busyAction)}>
-          Deploy app
-        </button>
-        <button className="action-button" onClick={onScale1} disabled={disabledIfBusy(busyAction)}>
-          Scale to 1
-        </button>
-        <button className="action-button" onClick={onScale3} disabled={disabledIfBusy(busyAction)}>
-          Scale to 3
-        </button>
+      <div className="action-stage-grid">
+        <section className="action-stage">
+          <div className="action-stage-header">
+            <span className="action-stage-step">01</span>
+            <div>
+              <h3>Launch</h3>
+              <p>Establish the workload and adjust replica count.</p>
+            </div>
+          </div>
+          <div className="action-grid">
+            <button className="action-button" onClick={onDeploy} disabled={disabledIfBusy(busyAction)}>
+              Deploy app
+            </button>
+            <button className="action-button" onClick={onScale1} disabled={disabledIfBusy(busyAction)}>
+              Scale to 1
+            </button>
+            <button className="action-button" onClick={onScale3} disabled={disabledIfBusy(busyAction)}>
+              Scale to 3
+            </button>
+          </div>
+        </section>
 
-        <div className="inline-controls">
-          <select value={selectedPod} onChange={(event) => onSelectPod(event.target.value)}>
-            <option value="">Delete oldest running pod</option>
-            {podOptions.map((pod) => (
-              <option key={pod} value={pod}>
-                {pod}
-              </option>
-            ))}
-          </select>
-          <button className="action-button" onClick={onDeletePod} disabled={disabledIfBusy(busyAction)}>
-            Delete pod
-          </button>
-        </div>
+        <section className="action-stage">
+          <div className="action-stage-header">
+            <span className="action-stage-step">02</span>
+            <div>
+              <h3>Disrupt</h3>
+              <p>Trigger pod churn and readiness failures to expose reconciliation.</p>
+            </div>
+          </div>
+          <div className="action-grid">
+            <div className="inline-controls">
+              <select value={selectedPod} onChange={(event) => onSelectPod(event.target.value)}>
+                <option value="">Delete oldest running pod</option>
+                {podOptions.map((pod) => (
+                  <option key={pod} value={pod}>
+                    {pod}
+                  </option>
+                ))}
+              </select>
+              <button className="action-button" onClick={onDeletePod} disabled={disabledIfBusy(busyAction)}>
+                Delete pod
+              </button>
+            </div>
 
-        <button className="action-button action-warn" onClick={onBreakReadiness} disabled={disabledIfBusy(busyAction)}>
-          Break readiness
-        </button>
-        <button className="action-button" onClick={onRestoreReadiness} disabled={disabledIfBusy(busyAction)}>
-          Restore readiness
-        </button>
+            <button className="action-button action-warn" onClick={onBreakReadiness} disabled={disabledIfBusy(busyAction)}>
+              Break readiness
+            </button>
+            <button className="action-button" onClick={onRestoreReadiness} disabled={disabledIfBusy(busyAction)}>
+              Restore readiness
+            </button>
+          </div>
+        </section>
 
-        <div className="inline-controls">
-          <input value={rolloutVersion} onChange={(event) => onRolloutVersion(event.target.value)} placeholder="v2" />
-          <button className="action-button" onClick={onRollout} disabled={disabledIfBusy(busyAction)}>
-            Rollout new version
-          </button>
-        </div>
+        <section className="action-stage">
+          <div className="action-stage-header">
+            <span className="action-stage-step">03</span>
+            <div>
+              <h3>Release</h3>
+              <p>Prove service routing and rollout behavior under live requests.</p>
+            </div>
+          </div>
+          <div className="action-grid">
+            <div className="inline-controls">
+              <input value={rolloutVersion} onChange={(event) => onRolloutVersion(event.target.value)} placeholder="v2" />
+              <button className="action-button" onClick={onRollout} disabled={disabledIfBusy(busyAction)}>
+                Rollout new version
+              </button>
+            </div>
 
-        <button className="action-button" onClick={onGenerateTraffic} disabled={disabledIfBusy(busyAction)}>
-          Generate traffic
-        </button>
+            <button className="action-button" onClick={onGenerateTraffic} disabled={disabledIfBusy(busyAction)}>
+              Generate traffic
+            </button>
 
-        <button className="action-button action-danger" onClick={onReset} disabled={disabledIfBusy(busyAction)}>
-          Reset demo
-        </button>
+            <button className="action-button action-danger" onClick={onReset} disabled={disabledIfBusy(busyAction)}>
+              Reset demo
+            </button>
+          </div>
+        </section>
       </div>
 
       {busyAction ? (
