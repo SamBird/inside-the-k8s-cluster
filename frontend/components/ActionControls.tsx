@@ -78,7 +78,7 @@ export function ActionControls({
             </div>
           </div>
           <div className="action-grid">
-            <div className="inline-controls">
+            <div className="inline-controls inline-controls-wide">
               <select value={selectedPod} onChange={(event) => onSelectPod(event.target.value)}>
                 <option value="">Delete oldest running pod</option>
                 {podOptions.map((pod) => (
@@ -110,7 +110,7 @@ export function ActionControls({
             </div>
           </div>
           <div className="action-grid">
-            <div className="inline-controls">
+            <div className="inline-controls inline-controls-wide">
               <input value={rolloutVersion} onChange={(event) => onRolloutVersion(event.target.value)} placeholder="v2" />
               <button className="action-button" onClick={onRollout} disabled={disabledIfBusy(busyAction)}>
                 Rollout new version

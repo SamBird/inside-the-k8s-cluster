@@ -351,6 +351,7 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  align-items: stretch;
 }
 
 .presenter-guidance {
@@ -369,6 +370,7 @@ button {
   background: linear-gradient(160deg, #eff7ff, #d9ebfc);
   color: var(--ink);
   min-height: 42px;
+  width: 100%;
   font-weight: 700;
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;
@@ -438,8 +440,17 @@ button {
 
 .inline-controls {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+}
+
+.inline-controls-wide {
+  grid-column: 1 / -1;
+}
+
+.inline-controls .action-button {
+  width: auto;
+  min-width: 132px;
 }
 
 .inline-controls select,
@@ -1237,5 +1248,14 @@ button {
 
   .hero-header h1 {
     font-size: clamp(1.9rem, 10vw, 2.7rem);
+  }
+
+  .inline-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-controls .action-button {
+    width: 100%;
+    min-width: 0;
   }
 }
