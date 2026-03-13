@@ -550,9 +550,9 @@ class KubernetesService:
 
     def _proxy_pod_readiness_change(self, pod_name: str, fail: bool) -> None:
         assert self.core is not None
-        path = "/admin/readiness/fail" if fail else "/admin/readiness/restore"
+        path = "admin/readiness/fail" if fail else "admin/readiness/restore"
         try:
-            self.core.connect_post_namespaced_pod_proxy(
+            self.core.connect_post_namespaced_pod_proxy_with_path(
                 name=pod_name,
                 namespace=self.cfg.namespace,
                 path=path,
@@ -563,6 +563,32 @@ class KubernetesService:
                 f"Failed to update readiness on pod '{pod_name}' via pod proxy "
                 f"(status={exc.status}, reason={exc.reason})"
             ) from exc
+
+    def _set_running_pods_readiness(self, running_pods: list[client.V1Pod], fail: bool) -> None:
+        for pod in running_pods:
+            self._proxy_pod_readiness_change(pod.metadata.name, fail=fail)
+
+    def _restore_readiness_baseline(self, running_pods: list[client.V1Pod], config_ready: bool) -> None:
+        assert self.core is not None
+        readiness_value = "true" if config_ready else "false"
+        try:
+            self.core.patch_namespaced_config_map(
+                name=self.cfg.configmap_name,
+                namespace=self.cfg.namespace,
+                body={"data": {"INITIAL_READINESS": readiness_value}},
+            )
+        except Exception:
+            pass
+
+        try:
+            self._set_running_pods_readiness(running_pods, fail=not config_ready)
+            self._wait_for_pod_readiness(
+                pod_names={pod.metadata.name for pod in running_pods},
+                expected_ready=config_ready,
+                timeout_seconds=10,
+            )
+        except Exception:
+            pass
 
     def _wait_for_pod_readiness(self, pod_names: set[str], expected_ready: bool, timeout_seconds: int = 20) -> None:
         assert self.core is not None
@@ -766,19 +792,23 @@ class KubernetesService:
         if not running_pods:
             raise BackendError("No running demo-app pods found to change readiness on")
 
+        previous_config = self._get_config_state()
+        previous_readiness = previous_config.initial_readiness if previous_config is not None else True
         readiness_value = "false" if fail else "true"
-        patch = {"data": {"INITIAL_READINESS": readiness_value}}
-        self.core.patch_namespaced_config_map(
-            name=self.cfg.configmap_name,
-            namespace=self.cfg.namespace,
-            body=patch,
-        )
-        for pod in running_pods:
-            self._proxy_pod_readiness_change(pod.metadata.name, fail=fail)
-        self._wait_for_pod_readiness(
-            pod_names={pod.metadata.name for pod in running_pods},
-            expected_ready=not fail,
-        )
+        try:
+            self.core.patch_namespaced_config_map(
+                name=self.cfg.configmap_name,
+                namespace=self.cfg.namespace,
+                body={"data": {"INITIAL_READINESS": readiness_value}},
+            )
+            self._set_running_pods_readiness(running_pods, fail=fail)
+            self._wait_for_pod_readiness(
+                pod_names={pod.metadata.name for pod in running_pods},
+                expected_ready=not fail,
+            )
+        except Exception:
+            self._restore_readiness_baseline(running_pods, config_ready=previous_readiness)
+            raise
         return ActionResponse(
             action="toggle_readiness_failure",
             message=f"Set INITIAL_READINESS={readiness_value} and updated running pod readiness without rollout",
