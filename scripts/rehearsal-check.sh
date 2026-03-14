@@ -86,6 +86,7 @@ check "cluster nodes reachable" kubectl --context "$KUBE_CONTEXT" get nodes >/de
 check "cluster nodes ready" kubectl --context "$KUBE_CONTEXT" wait --for=condition=Ready node --all --timeout=90s >/dev/null
 check "demo deployment rolled out" kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/demo-app --timeout=120s >/dev/null
 check "backend healthy" check_http_ok "${BACKEND_URL}/healthz"
+check "backend state endpoint works" check_http_ok "${BACKEND_URL}/api/state"
 check "frontend reachable" check_http_ok "${FRONTEND_URL}"
 check "traffic endpoint works" check_traffic_endpoint
 check "control-plane overview renders" check_grep_url "${FRONTEND_URL}" "Control Plane Overview"

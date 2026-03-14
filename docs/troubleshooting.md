@@ -90,8 +90,26 @@ Symptoms:
 Fix:
 
 - confirm backend is running on `:8000`
+- confirm the state endpoint works, not just `/healthz`:
+
+```bash
+curl -s http://localhost:8000/healthz
+curl -s http://localhost:8000/api/state | jq '.deployment'
+```
+
+- if `/healthz` works but `/api/state` fails after recreating kind, restart the demo-managed services:
+
+```bash
+make demo-stop
+make demo-all
+```
+
 - set `NEXT_PUBLIC_BACKEND_URL` in `frontend/.env.local`
 - restart frontend after env changes
+
+Cause:
+- older backend processes may keep talking to a stale kind API endpoint after the cluster is recreated
+- newer `demo-all` runs now verify `/api/state` and restart stale demo backend processes automatically
 
 ## 6) Traffic panel shows request failures
 

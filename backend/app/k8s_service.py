@@ -78,27 +78,49 @@ class KubernetesService:
         self.coordination: client.CoordinationV1Api | None = None
 
     @staticmethod
-    def _load_kube_config() -> None:
+    def _load_kube_config() -> str | None:
         kubeconfig_error: Exception | None = None
         try:
             config.load_kube_config()
-            return
+            return client.Configuration.get_default_copy().host
         except Exception as exc:
             kubeconfig_error = exc
 
         try:
             config.load_incluster_config()
-            return
+            return client.Configuration.get_default_copy().host
         except Exception as incluster_error:
             raise BackendError(
                 f"Unable to load Kubernetes config (kubeconfig error: {kubeconfig_error}; "
                 f"in-cluster error: {incluster_error})"
             ) from incluster_error
 
+    def _reset_clients(self) -> None:
+        if self.api_client is not None:
+            try:
+                self.api_client.close()
+            except Exception:
+                pass
+        self.api_client = None
+        self.core = None
+        self.apps = None
+        self.coordination = None
+
     def _ensure_clients(self) -> None:
-        if self.core is not None and self.apps is not None and self.coordination is not None:
+        desired_host = self._load_kube_config()
+        current_host = self.api_client.configuration.host if self.api_client is not None else None
+
+        # Kind recreates often change the API port in kubeconfig. Refresh clients when that happens
+        # so long-lived backend processes do not keep talking to a dead control-plane endpoint.
+        if (
+            self.core is not None
+            and self.apps is not None
+            and self.coordination is not None
+            and current_host == desired_host
+        ):
             return
-        self._load_kube_config()
+
+        self._reset_clients()
         self.api_client = client.ApiClient()
         self.core = client.CoreV1Api(self.api_client)
         self.apps = client.AppsV1Api(self.api_client)

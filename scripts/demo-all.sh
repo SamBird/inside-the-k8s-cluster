@@ -18,6 +18,7 @@ PID_DIR="${DEMO_DIR}/pids"
 LOG_DIR="${DEMO_DIR}/logs"
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
+LAUNCH_HELPER="${ROOT_DIR}/scripts/launch-detached.py"
 BACKEND_PID_FILE="${PID_DIR}/backend.pid"
 FRONTEND_PID_FILE="${PID_DIR}/frontend.pid"
 BACKEND_LOG_FILE="${LOG_DIR}/backend.log"
@@ -50,6 +51,10 @@ require_cmd() {
   command -v "$cmd" >/dev/null 2>&1 || fail "Required command not found: $cmd"
 }
 
+http_status() {
+  curl -s -o /dev/null -w "%{http_code}" "$1" || true
+}
+
 wait_for_http() {
   local url="$1"
   local attempts="${2:-45}"
@@ -73,49 +78,175 @@ pid_is_running() {
   kill -0 "$pid" >/dev/null 2>&1
 }
 
+stop_pid() {
+  local pid="$1"
+
+  kill -- "-${pid}" >/dev/null 2>&1 || true
+  kill "$pid" >/dev/null 2>&1 || true
+  sleep 1
+
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    kill -9 -- "-${pid}" >/dev/null 2>&1 || true
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  fi
+}
+
+stop_managed_service() {
+  local name="$1"
+  local pid_file="$2"
+
+  if pid_is_running "$pid_file"; then
+    local pid
+    pid="$(cat "$pid_file")"
+    warn "Stopping managed ${name} process (pid ${pid})"
+    stop_pid "$pid"
+  fi
+
+  rm -f "$pid_file"
+}
+
+port_from_url() {
+  local url="$1"
+  [[ "$url" =~ ^https?://[^:/]+:([0-9]+)$ ]] || return 1
+  echo "${BASH_REMATCH[1]}"
+}
+
+pid_listening_on_port() {
+  local port="$1"
+  lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | head -n 1 || true
+}
+
+process_command() {
+  local pid="$1"
+  ps -p "$pid" -o command= 2>/dev/null || true
+}
+
+repo_backend_pid_on_port() {
+  local backend_port
+  backend_port="$(port_from_url "$BACKEND_URL")" || return 0
+
+  local pid
+  pid="$(pid_listening_on_port "$backend_port")"
+  [[ -n "$pid" ]] || return 0
+
+  local cmd
+  cmd="$(process_command "$pid")"
+  if [[ "$cmd" == *"uvicorn"* && "$cmd" == *"app.main:app"* && "$cmd" == *"--port ${backend_port}"* ]]; then
+    echo "$pid"
+  fi
+}
+
+backend_probe_status() {
+  local health_status
+  health_status="$(http_status "${BACKEND_URL}/healthz")"
+  if [[ "$health_status" != "200" ]]; then
+    echo "down"
+    return 0
+  fi
+
+  local state_status
+  state_status="$(http_status "${BACKEND_URL}/api/state")"
+  if [[ "$state_status" != "200" ]]; then
+    echo "state"
+    return 0
+  fi
+
+  local traffic_status
+  traffic_status="$(http_status "${BACKEND_URL}/api/traffic/info")"
+  if [[ "$traffic_status" == "404" ]]; then
+    echo "routes"
+    return 0
+  fi
+
+  echo "ok"
+}
+
+wait_for_backend_ready() {
+  local attempts="${1:-45}"
+  local sleep_seconds="${2:-1}"
+  local issue=""
+
+  for ((i = 1; i <= attempts; i++)); do
+    issue="$(backend_probe_status)"
+    if [[ "$issue" == "ok" ]]; then
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  BACKEND_LAST_ISSUE="$issue"
+  return 1
+}
+
+start_detached_service() {
+  local workdir="$1"
+  local pid_file="$2"
+  local log_file="$3"
+  shift 3
+
+  python3 "$LAUNCH_HELPER" \
+    --workdir "$workdir" \
+    --pid-file "$pid_file" \
+    --log-file "$log_file" \
+    -- "$@"
+}
+
 start_backend_if_needed() {
   step "Ensuring backend service is running"
 
-  if wait_for_http "${BACKEND_URL}/healthz" 2 1; then
-    local traffic_status
-    traffic_status="$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/traffic/info" || true)"
-    if [[ "$traffic_status" == "404" ]]; then
-      warn "Backend is healthy but missing /api/traffic/info (likely stale process)."
-      if ! pid_is_running "$BACKEND_PID_FILE"; then
-        fail "Backend appears outdated and is not managed by demo-all. Restart backend and rerun."
-      fi
-      warn "Restarting managed backend process to load latest routes."
-      kill "$(cat "$BACKEND_PID_FILE")" >/dev/null 2>&1 || true
-      rm -f "$BACKEND_PID_FILE"
+  local probe_status
+  probe_status="$(backend_probe_status)"
+  if [[ "$probe_status" == "ok" ]]; then
+    ok "Backend already serves live state at ${BACKEND_URL}"
+    return 0
+  fi
+
+  if [[ "$probe_status" == "state" || "$probe_status" == "routes" ]]; then
+    warn "Backend is responding but cannot serve current demo state (${probe_status})."
+    if pid_is_running "$BACKEND_PID_FILE"; then
+      stop_managed_service "backend" "$BACKEND_PID_FILE"
       sleep 1
     else
-      ok "Backend already healthy at ${BACKEND_URL}/healthz"
-      return 0
+      require_cmd lsof
+      local stale_backend_pid
+      stale_backend_pid="$(repo_backend_pid_on_port)"
+      if [[ -n "$stale_backend_pid" ]]; then
+        warn "Restarting stale repo backend on port $(port_from_url "$BACKEND_URL")."
+        stop_pid "$stale_backend_pid"
+        sleep 1
+      else
+        fail "Backend on ${BACKEND_URL} is stale but not demo-all managed. Stop it and rerun demo-all."
+      fi
     fi
   fi
 
   [[ -x "${ROOT_DIR}/backend/.venv/bin/uvicorn" ]] || fail "backend virtualenv is missing. Run 'make backend-install'."
 
   if pid_is_running "$BACKEND_PID_FILE"; then
-    warn "Backend process exists (pid $(cat "$BACKEND_PID_FILE")) but health check is failing. Restarting it."
-    kill "$(cat "$BACKEND_PID_FILE")" >/dev/null 2>&1 || true
-    rm -f "$BACKEND_PID_FILE"
+    warn "Backend process exists (pid $(cat "$BACKEND_PID_FILE")) but checks are failing. Restarting it."
+    stop_managed_service "backend" "$BACKEND_PID_FILE"
     sleep 1
+  else
+    rm -f "$BACKEND_PID_FILE"
   fi
 
   info "Starting backend (logs: ${BACKEND_LOG_FILE})"
-  (
-    cd backend
-    nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 >"$BACKEND_LOG_FILE" 2>&1 &
-    echo $! >"$BACKEND_PID_FILE"
-  )
+  if ! start_detached_service \
+    "${ROOT_DIR}/backend" \
+    "$BACKEND_PID_FILE" \
+    "$BACKEND_LOG_FILE" \
+    .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000; then
+    warn "Backend log tail:"
+    tail -n 60 "$BACKEND_LOG_FILE" || true
+    fail "Backend failed to launch"
+  fi
 
-  if wait_for_http "${BACKEND_URL}/healthz" 45 1; then
-    ok "Backend is healthy"
+  if wait_for_backend_ready 45 1; then
+    ok "Backend serves live state"
   else
     warn "Backend log tail:"
     tail -n 60 "$BACKEND_LOG_FILE" || true
-    fail "Backend failed to become healthy at ${BACKEND_URL}/healthz"
+    fail "Backend failed to become ready for live state (last probe: ${BACKEND_LAST_ISSUE:-unknown})"
   fi
 }
 
@@ -139,17 +270,22 @@ start_frontend_if_needed() {
 
   if pid_is_running "$FRONTEND_PID_FILE"; then
     warn "Frontend process exists (pid $(cat "$FRONTEND_PID_FILE")) but endpoint is failing. Restarting it."
-    kill "$(cat "$FRONTEND_PID_FILE")" >/dev/null 2>&1 || true
-    rm -f "$FRONTEND_PID_FILE"
+    stop_managed_service "frontend" "$FRONTEND_PID_FILE"
     sleep 1
+  else
+    rm -f "$FRONTEND_PID_FILE"
   fi
 
   info "Starting frontend (logs: ${FRONTEND_LOG_FILE})"
-  (
-    cd frontend
-    nohup npm run dev -- --hostname 0.0.0.0 --port 3000 >"$FRONTEND_LOG_FILE" 2>&1 &
-    echo $! >"$FRONTEND_PID_FILE"
-  )
+  if ! start_detached_service \
+    "${ROOT_DIR}/frontend" \
+    "$FRONTEND_PID_FILE" \
+    "$FRONTEND_LOG_FILE" \
+    npm run dev -- --hostname 0.0.0.0 --port 3000; then
+    warn "Frontend log tail:"
+    tail -n 80 "$FRONTEND_LOG_FILE" || true
+    fail "Frontend failed to launch"
+  fi
 
   if wait_for_http "${FRONTEND_URL}" 90 1; then
     ok "Frontend is reachable"
