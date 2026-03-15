@@ -6,6 +6,7 @@ import { ActionControls } from "../components/ActionControls";
 import { DesiredActualPanel } from "../components/DesiredActualPanel";
 import { EventTimeline } from "../components/EventTimeline";
 import { PageNav } from "../components/PageNav";
+import { PageHero } from "../components/PageHero";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
 import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
@@ -255,26 +256,21 @@ export default function DashboardPage() {
 
   return (
     <main className="page-shell">
-      <header className="hero-header reveal-1">
-        <div className="hero-copy">
-          <span className="hero-eyebrow">Teaching Demo Dashboard</span>
-          <h1>Inside the Kubernetes Cluster</h1>
-          <p>Presenter-friendly live demo for scheduling, readiness, scaling, rollouts, and recovery inside Kubernetes.</p>
-        </div>
-        <div className="hero-side">
-          <div className="hero-status">
-            <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
-            <span className={`connection-pill connection-cluster-${clusterTone}`}>Cluster: {clusterLabel}</span>
-            <span className="connection-pill">Last update: {formatTimestamp(state?.updated_at)}</span>
-            {busyAction ? (
-              <span className="connection-pill connection-pill-busy" role="status" aria-live="polite">
-              <span className="inline-spinner" aria-hidden="true" />
-              <span>Reconciling: {busyAction}</span>
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Live Demo Dashboard"
+        title="Inside the Kubernetes Cluster"
+        description="Presenter-friendly live demo for scheduling, readiness, scaling, rollouts, and recovery inside Kubernetes."
+      >
+        <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
+        <span className={`connection-pill connection-cluster-${clusterTone}`}>Cluster: {clusterLabel}</span>
+        <span className="connection-pill">Last update: {formatTimestamp(state?.updated_at)}</span>
+        {busyAction ? (
+          <span className="connection-pill connection-pill-busy" role="status" aria-live="polite">
+            <span className="inline-spinner" aria-hidden="true" />
+            <span>Reconciling: {busyAction}</span>
+          </span>
+        ) : null}
+      </PageHero>
       <PageNav current="dashboard" />
 
       <section className="summary-strip reveal-2" aria-label="Live demo summary">

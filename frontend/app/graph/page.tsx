@@ -5,6 +5,7 @@ import type { Edge, Node } from "@xyflow/react";
 import type { Core as CytoscapeCore, CytoscapeOptions, LayoutOptions } from "cytoscape";
 
 import { PageNav } from "../../components/PageNav";
+import { PageHero } from "../../components/PageHero";
 import { getState, subscribeToState } from "../../lib/api";
 import {
   buildClusterGraph,
@@ -499,19 +500,14 @@ export default function ClusterGraphPage() {
 
   return (
     <main className="page-shell">
-      <header className="hero-header reveal-1">
-        <div>
-          <h1>Inside the Kubernetes Cluster</h1>
-          <p>
-            Graph view for live demo storytelling. Conceptual control-plane relationships are explicitly labeled and
-            separated from live discovered resources.
-          </p>
-        </div>
-        <div className="hero-status">
-          <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
-          <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Cluster Graph"
+        title="Inside the Kubernetes Cluster"
+        description="Live graph storytelling with conceptual control-plane relationships clearly separated from discovered cluster resources."
+      >
+        <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
+        <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
+      </PageHero>
       <PageNav current="graph" />
 
       <section className="panel graph-legend-panel reveal-2">

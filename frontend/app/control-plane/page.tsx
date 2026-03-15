@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ControlPlaneInspector } from "../../components/ControlPlaneInspector";
 import { PageNav } from "../../components/PageNav";
+import { PageHero } from "../../components/PageHero";
 import { getControlPlaneState } from "../../lib/api";
 import { ConnectionState, ControlPlaneState } from "../../lib/types";
 
@@ -48,21 +49,16 @@ export default function ControlPlanePage() {
 
   return (
     <main className="page-shell">
-      <header className="hero-header reveal-1">
-        <div>
-          <h1>Inside the Kubernetes Cluster</h1>
-          <p>
-            Control-plane inspector for teaching how API server, etcd, scheduler, and controller-manager translate
-            desired state into running workloads.
-          </p>
-        </div>
-        <div className="hero-status">
-          <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
-          <span className="connection-pill">
-            Last update: {controlPlane ? new Date(controlPlane.discovered_at).toLocaleTimeString() : "n/a"}
-          </span>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Control Plane Inspector"
+        title="Inside the Kubernetes Cluster"
+        description="Teach how the API server, etcd, scheduler, and controller-manager translate desired state into running workloads."
+      >
+        <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
+        <span className="connection-pill">
+          Last update: {controlPlane ? new Date(controlPlane.discovered_at).toLocaleTimeString() : "n/a"}
+        </span>
+      </PageHero>
       <PageNav current="control-plane" />
 
       <ControlPlaneInspector controlPlane={controlPlane} connection={connection} loading={loading} />

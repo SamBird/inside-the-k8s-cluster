@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ControlPlaneOverview } from "../../components/ControlPlaneOverview";
 import { ExplainedFlowPanel } from "../../components/ExplainedFlowPanel";
 import { PageNav } from "../../components/PageNav";
+import { PageHero } from "../../components/PageHero";
 import { getState, subscribeToState } from "../../lib/api";
 import { ExplainedFlowRun, ExplainedFlowScenario, findExplainedFlowScenario } from "../../lib/explainedFlow";
 import { ClusterState, ConnectionState } from "../../lib/types";
@@ -69,16 +70,14 @@ export default function TeachingPage() {
 
   return (
     <main className="page-shell">
-      <header className="hero-header reveal-1">
-        <div>
-          <h1>Inside the Kubernetes Cluster</h1>
-          <p>Teaching view for conceptual control-plane flow and reconciliation walkthroughs.</p>
-        </div>
-        <div className="hero-status">
-          <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
-          <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
-        </div>
-      </header>
+      <PageHero
+        eyebrow="Teaching View"
+        title="Inside the Kubernetes Cluster"
+        description="Conceptual control-plane walkthroughs for desired state, reconciliation, readiness, and rollout storytelling."
+      >
+        <span className={`connection-pill connection-${connection}`}>Backend: {connection}</span>
+        <span className="connection-pill">Last update: {state ? new Date(state.updated_at).toLocaleTimeString() : "n/a"}</span>
+      </PageHero>
       <PageNav current="teaching" />
 
       <section className="dashboard-grid">
