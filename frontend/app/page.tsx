@@ -353,9 +353,11 @@ export default function DashboardPage() {
           <TopologyView state={state} />
         </div>
 
-        <WorkloadResourcesPanel state={state} />
+        <div className="layout-span-2">
+          <WorkloadResourcesPanel state={state} />
+        </div>
 
-        <div className="reveal-6">
+        <div className="layout-span-2 reveal-6">
           <TrafficPanel
             trafficTarget={trafficTargetLabel}
             requestCount={trafficCount}

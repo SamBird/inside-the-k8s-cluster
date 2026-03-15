@@ -23,7 +23,9 @@ from .models import (
     DeploymentState,
     NodeState,
     PodState,
+    ReplicaSetState,
     ServicePortState,
+    ServiceEndpointState,
     ServiceState,
 )
 
@@ -135,7 +137,9 @@ class KubernetesService:
         self._ensure_clients()
         nodes_state = self._get_nodes_state()
         deployment_state = self._get_deployment_state()
+        replica_sets_state = self._get_replica_sets_state()
         service_state = self._get_service_state()
+        service_endpoints_state = self._get_service_endpoints_state()
         pods_state = self._get_pods_state()
         config_state = self._get_config_state()
 
@@ -143,7 +147,9 @@ class KubernetesService:
             namespace=self.cfg.namespace,
             nodes=nodes_state,
             deployment=deployment_state,
+            replica_sets=replica_sets_state,
             service=service_state,
+            service_endpoints=service_endpoints_state,
             pods=pods_state,
             config=config_state,
             updated_at=datetime.now(timezone.utc),
@@ -435,6 +441,94 @@ class KubernetesService:
                 return ServiceState(name=self.cfg.service_name, exists=False)
             raise
 
+    @staticmethod
+    def _owner_reference_name(metadata: client.V1ObjectMeta | None, kind: str) -> str | None:
+        if metadata is None or metadata.owner_references is None:
+            return None
+
+        for owner_ref in metadata.owner_references:
+            if owner_ref.kind == kind:
+                return owner_ref.name
+        return None
+
+    def _get_replica_sets_state(self) -> list[ReplicaSetState]:
+        assert self.apps is not None
+        try:
+            replica_sets = self.apps.list_namespaced_replica_set(
+                namespace=self.cfg.namespace,
+                label_selector=self.cfg.app_label,
+            )
+        except ApiException as exc:
+            if exc.status == 404:
+                return []
+            raise
+
+        result: list[ReplicaSetState] = []
+        items = sorted(
+            replica_sets.items,
+            key=lambda rs: (
+                rs.metadata.creation_timestamp or datetime.min.replace(tzinfo=timezone.utc),
+                rs.metadata.name or "",
+            ),
+            reverse=True,
+        )
+
+        for replica_set in items:
+            status = replica_set.status
+            template_spec = replica_set.spec.template.spec if replica_set.spec and replica_set.spec.template else None
+            containers = template_spec.containers if template_spec else None
+            result.append(
+                ReplicaSetState(
+                    name=replica_set.metadata.name,
+                    replicas=replica_set.spec.replicas or 0 if replica_set.spec else 0,
+                    available_replicas=status.available_replicas or 0 if status else 0,
+                    ready_replicas=status.ready_replicas or 0 if status else 0,
+                    revision=(replica_set.metadata.annotations or {}).get("deployment.kubernetes.io/revision"),
+                    owner_name=self._owner_reference_name(replica_set.metadata, "Deployment"),
+                    image=containers[0].image if containers else None,
+                    created_at=replica_set.metadata.creation_timestamp,
+                )
+            )
+
+        return result
+
+    def _get_service_endpoints_state(self) -> list[ServiceEndpointState]:
+        assert self.core is not None
+        try:
+            endpoints = self.core.read_namespaced_endpoints(self.cfg.service_name, self.cfg.namespace)
+        except ApiException as exc:
+            if exc.status == 404:
+                return []
+            raise
+
+        deduped: dict[tuple[str, str | None, bool], ServiceEndpointState] = {}
+
+        def record(address: client.V1EndpointAddress, ready: bool) -> None:
+            target_ref = address.target_ref
+            key = (address.ip, target_ref.name if target_ref else None, ready)
+            deduped[key] = ServiceEndpointState(
+                ip=address.ip,
+                ready=ready,
+                node_name=address.node_name,
+                pod_name=target_ref.name if target_ref and target_ref.kind == "Pod" else None,
+                target_ref_kind=target_ref.kind if target_ref else None,
+            )
+
+        for subset in endpoints.subsets or []:
+            for address in subset.addresses or []:
+                record(address, ready=True)
+            for address in subset.not_ready_addresses or []:
+                record(address, ready=False)
+
+        return sorted(
+            deduped.values(),
+            key=lambda endpoint: (
+                not endpoint.ready,
+                endpoint.pod_name or endpoint.ip,
+                endpoint.ip,
+            ),
+        )
+
     def _get_pods_state(self) -> list[PodState]:
         assert self.core is not None
         try:
@@ -463,6 +557,8 @@ class KubernetesService:
                     phase=pod.status.phase if pod.status else None,
                     node_name=pod.spec.node_name if pod.spec else None,
                     pod_ip=pod.status.pod_ip if pod.status else None,
+                    owner_kind=pod.metadata.owner_references[0].kind if pod.metadata and pod.metadata.owner_references else None,
+                    owner_name=pod.metadata.owner_references[0].name if pod.metadata and pod.metadata.owner_references else None,
                     ready=ready,
                     restart_count=restarts,
                     image=image,

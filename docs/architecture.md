@@ -27,7 +27,7 @@ The system has four layers:
 
 4. Presentation layer (`frontend`):
 - Next.js split-view dashboard:
-  - `/` live demo controls + live state (desired/actual, topology, resources, traffic, timeline)
+  - `/` live demo controls + live state (desired/actual, topology, lineage/endpoints, traffic, timeline)
   - `/teaching` conceptual control-plane overview + explained-flow teaching panel
 - `/graph` Cytoscape visualization of control-plane concepts plus live discovered resources/nodes/pods/traffic readiness links
 - explained-flow sequence panel for `Apply YAML journey`, `Controller reconciliation`, deploy/scale/readiness/rollout actions
@@ -38,7 +38,7 @@ The system has four layers:
 1. Frontend requests `GET /api/state` for initial snapshot.
 2. Frontend subscribes to `GET /api/events` SSE.
 3. Backend watches demo pods and emits updated state snapshots.
-4. Frontend updates topology and timeline from each new snapshot.
+4. Frontend updates topology, workload lineage, service endpoints, and timeline from each new snapshot.
 5. User actions call backend action routes, backend patches Kubernetes resources, and updated state is reflected in UI.
 
 ## Control Plane Teaching Model
@@ -81,7 +81,9 @@ Namespace: `inside-k8s-demo`
 Resources:
 
 - `Deployment/demo-app`
+- `ReplicaSet` objects owned by `Deployment/demo-app`
 - `Service/demo-app`
+- `Endpoints/demo-app`
 - `ConfigMap/demo-app-config`
 
 Readiness behavior for the live demo is changed through direct admin calls on currently running pods, so one pod can become `NotReady` without creating a new ReplicaSet or changing future pod startup policy.

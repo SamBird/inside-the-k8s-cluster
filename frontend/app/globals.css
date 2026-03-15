@@ -929,6 +929,167 @@ button {
   font-size: 0.93rem;
 }
 
+.lineage-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lineage-layout {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 12px;
+}
+
+.lineage-card {
+  border: 2px solid #657b88;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.lineage-root {
+  margin-top: 10px;
+  display: grid;
+  gap: 12px;
+}
+
+.lineage-step-card {
+  border: 1px solid #a6bbc7;
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, #fbfdff, #f4f9fc);
+}
+
+.lineage-step-root {
+  border-color: #8db39d;
+  background: linear-gradient(180deg, #eef9f2, #f8fcfa);
+}
+
+.ownership-arrow-chip {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #90a6b3;
+  background: #f3f7fa;
+  color: #34505f;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ownership-branch-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ownership-branch {
+  display: grid;
+  gap: 10px;
+}
+
+.ownership-step-card {
+  border-color: #96abc0;
+}
+
+.lineage-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.replicaset-meta {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.lineage-pod-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.ownership-pod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.lineage-pod-pill {
+  border: 1px solid #aac0cd;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.ownership-pod-pill {
+  min-height: 78px;
+}
+
+.lineage-empty {
+  border: 1px dashed #92a9b8;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fbfd;
+}
+
+.lineage-history {
+  border: 1px solid #a8bbc7;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f9fbfd;
+}
+
+.lineage-history h4 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.lineage-history-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.lineage-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #c4d2da;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.lineage-history-meta {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.endpoint-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.endpoint-row {
+  border: 1px solid #aac0cd;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
+}
+
+.endpoint-row-empty {
+  border-style: dashed;
+}
+
 .timeline-list {
   list-style: none;
   margin: 10px 0 0;
@@ -1231,6 +1392,15 @@ button {
   .graph-canvas {
     min-height: 60vh;
   }
+
+  .lineage-summary-grid,
+  .lineage-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lineage-history-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1257,5 +1427,9 @@ button {
   .inline-controls .action-button {
     width: 100%;
     min-width: 0;
+  }
+
+  .ownership-pod-grid {
+    grid-template-columns: 1fr;
   }
 }

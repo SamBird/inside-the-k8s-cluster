@@ -12,7 +12,7 @@ Projector-friendly Next.js + TypeScript dashboard for the Kubernetes live demo.
 - explained control-plane flow panel for core demo actions, including `Apply YAML journey` and `Controller reconciliation`
 - Cytoscape based graph visualization (`cytoscape`) for projector-friendly cluster relationship mapping
 - worker-node topology view (node readiness and pod placement)
-- workload resources panel (Deployment, ReplicaSet, Pods, Service)
+- live lineage and endpoints panel (Deployment -> ReplicaSet -> Pod ownership plus Service endpoint set)
 - desired vs actual state panel
 - SSE-driven live event timeline
 - traffic response panel showing pod/node/version/readiness
@@ -40,6 +40,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 - control-plane panel includes discovered live node context (control-plane node name, roles, selected labels) from Kubernetes API.
 - explained flow steps are inferred teaching sequences, combined with separate live state signals.
 - graph view labels conceptual control edges separately from live discovered workload/resource edges.
+- graph view uses live ReplicaSet ownership and Service endpoint membership when available.
 - graph view includes presenter focus modes:
   - `Overview`
   - `Control Loop`

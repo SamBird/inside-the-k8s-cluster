@@ -14,6 +14,8 @@ export interface PodState {
   phase?: string | null;
   node_name?: string | null;
   pod_ip?: string | null;
+  owner_kind?: string | null;
+  owner_name?: string | null;
   ready: boolean;
   restart_count: number;
   image?: string | null;
@@ -27,6 +29,17 @@ export interface DeploymentState {
   available_replicas: number;
   ready_replicas: number;
   observed_generation?: number | null;
+}
+
+export interface ReplicaSetState {
+  name: string;
+  replicas: number;
+  available_replicas: number;
+  ready_replicas: number;
+  revision?: string | null;
+  owner_name?: string | null;
+  image?: string | null;
+  created_at?: string | null;
 }
 
 export interface ServicePortState {
@@ -44,6 +57,14 @@ export interface ServiceState {
   ports: ServicePortState[];
 }
 
+export interface ServiceEndpointState {
+  ip: string;
+  ready: boolean;
+  node_name?: string | null;
+  pod_name?: string | null;
+  target_ref_kind?: string | null;
+}
+
 export interface DemoConfigState {
   app_version: string;
   initial_readiness: boolean;
@@ -53,7 +74,9 @@ export interface ClusterState {
   namespace: string;
   nodes: NodeState[];
   deployment: DeploymentState;
+  replica_sets: ReplicaSetState[];
   service: ServiceState;
+  service_endpoints: ServiceEndpointState[];
   pods: PodState[];
   config?: DemoConfigState | null;
   updated_at: string;

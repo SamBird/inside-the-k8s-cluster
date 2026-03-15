@@ -231,7 +231,7 @@ function nodeLane(id: string): ClusterGraphLane {
   if (id.startsWith("cp-")) {
     return "control";
   }
-  if (id === "dep" || id === "rs" || id === "svc") {
+  if (id === "dep" || id === "svc" || id.startsWith("rs:")) {
     return "desired";
   }
   if (id.startsWith("worker:")) {
@@ -247,7 +247,6 @@ function laneOrder(id: string): number {
     "cp-controller-manager": 3,
     "cp-scheduler": 4,
     dep: 1,
-    rs: 2,
     svc: 3,
     "pod-overflow": 999
   };
@@ -258,15 +257,6 @@ function laneOrder(id: string): number {
 
   return 100;
 }
-
-function podReplicaSetName(podName: string): string {
-  const parts = podName.split("-");
-  if (parts.length < 3) {
-    return "unknown-replicaset";
-  }
-  return parts.slice(0, -1).join("-");
-}
-
 function isWorkerNode(node: NodeState): boolean {
   if (node.role === "control-plane") {
     return false;
@@ -408,11 +398,19 @@ function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
   const serviceExists = state?.service.exists ?? false;
   const serviceIp = state?.service.cluster_ip ?? "n/a";
   const servicePorts = state?.service.ports.map((port) => `${port.port}/${port.protocol}`).join(", ") || "n/a";
+  const replicaSets = state?.replica_sets ?? [];
+  const serviceEndpoints = state?.service_endpoints ?? [];
   const allPods = sortPods(state?.pods ?? []);
   const podDisplay = clampPodsForPresentation(allPods, 8);
   const pods = podDisplay.visiblePods;
   const omittedPodCount = podDisplay.omittedCount;
-  const observedReplicaSets = Array.from(new Set(allPods.map((pod) => podReplicaSetName(pod.name))));
+  const readyEndpointCount = serviceEndpoints.filter((endpoint) => endpoint.ready).length;
+  const blockedEndpointCount = serviceEndpoints.filter((endpoint) => !endpoint.ready).length;
+  const endpointByPodName = new Map(
+    serviceEndpoints
+      .filter((endpoint) => endpoint.pod_name)
+      .map((endpoint) => [endpoint.pod_name as string, endpoint])
+  );
 
   nodes.push(
     createNode("dep", {
@@ -427,34 +425,60 @@ function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
         `available replicas: ${availableReplicas}`
       ]
     }),
-    createNode("rs", {
-      label: "ReplicaSet (live)",
-      category: "live-resource",
-      source: "live",
-      detail: "Observed from pod ownership naming; detailed RS watch is not currently exposed by backend.",
-      metadata: [
-        `observed sets: ${observedReplicaSets.length || 0}`,
-        `pod objects (all): ${allPods.length}`,
-        `pods rendered in graph: ${pods.length}${omittedPodCount > 0 ? ` (+${omittedPodCount} omitted)` : ""}`,
-        ...(observedReplicaSets.length ? observedReplicaSets.map((name) => `- ${name}`) : ["- none observed"])
-      ]
-    }),
     createNode("svc", {
       label: `Service\n${state?.service.name ?? "demo-app"}`,
       category: "live-resource",
       source: "live",
       detail: "Routes traffic to Ready pods only.",
-      metadata: [`exists: ${serviceExists}`, `cluster IP: ${serviceIp}`, `ports: ${servicePorts}`]
+      metadata: [
+        `exists: ${serviceExists}`,
+        `cluster IP: ${serviceIp}`,
+        `ports: ${servicePorts}`,
+        `ready endpoints: ${readyEndpointCount}`,
+        `blocked endpoints: ${blockedEndpointCount}`
+      ]
     })
   );
+
+  const replicaSetIds = new Map<string, string>();
+  for (const replicaSet of replicaSets) {
+    const replicaSetId = `rs:${replicaSet.name}`;
+    replicaSetIds.set(replicaSet.name, replicaSetId);
+    nodes.push(
+      createNode(replicaSetId, {
+        label: `ReplicaSet\n${replicaSet.name}`,
+        category: "live-resource",
+        source: "live",
+        detail: "Live discovered ReplicaSet object from the Deployment rollout chain.",
+        metadata: [
+          `revision: ${replicaSet.revision ?? "unknown"}`,
+          `owner: ${replicaSet.owner_name ?? "unknown"}`,
+          `desired replicas: ${replicaSet.replicas}`,
+          `ready replicas: ${replicaSet.ready_replicas}`,
+          `available replicas: ${replicaSet.available_replicas}`,
+          `image: ${replicaSet.image ?? "unknown"}`
+        ]
+      })
+    );
+
+    edges.push(
+      createEdge(
+        `cp-controller-rs-${replicaSet.name}`,
+        "cp-controller-manager",
+        replicaSetId,
+        "manage replicas",
+        "reconciliation",
+        "conceptual"
+      ),
+      createEdge(`dep-rs-${replicaSet.name}`, "dep", replicaSetId, "owns", "ownership", "live")
+    );
+  }
 
   edges.push(
     createEdge("cp-api-etcd", "cp-apiserver", "cp-etcd", "store object state", "conceptual-control", "conceptual"),
     createEdge("cp-api-controller", "cp-apiserver", "cp-controller-manager", "watch + reconcile", "conceptual-control", "conceptual"),
     createEdge("cp-api-scheduler", "cp-apiserver", "cp-scheduler", "pending pod queue", "conceptual-control", "conceptual"),
-    createEdge("cp-controller-dep", "cp-controller-manager", "dep", "reconciliation loop", "reconciliation", "conceptual"),
-    createEdge("cp-controller-rs", "cp-controller-manager", "rs", "manage replicas", "reconciliation", "conceptual"),
-    createEdge("dep-rs", "dep", "rs", "owns", "ownership", "live")
+    createEdge("cp-controller-dep", "cp-controller-manager", "dep", "reconciliation loop", "reconciliation", "conceptual")
   );
 
   const workerNodes = (state?.nodes ?? []).filter(isWorkerNode);
@@ -505,6 +529,16 @@ function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
     const nodeName = pod.node_name ?? "unscheduled";
     const workerNodeId = `worker:${nodeName}`;
     const readiness = pod.ready ? "Ready" : "Not Ready";
+    const ownerReplicaSetId = pod.owner_name ? replicaSetIds.get(pod.owner_name) : undefined;
+    const trafficEndpoint = endpointByPodName.get(pod.name);
+    const trafficAllowed = trafficEndpoint?.ready ?? false;
+    const trafficLabel = trafficEndpoint
+      ? trafficEndpoint.ready
+        ? `endpoint ready (${trafficEndpoint.ip})`
+        : `endpoint blocked (${trafficEndpoint.ip})`
+      : serviceExists
+      ? "endpoint pending"
+      : "service missing";
 
     if (!knownWorkers.has(nodeName)) {
       knownWorkers.add(nodeName);
@@ -539,24 +573,31 @@ function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
         metadata: [
           `phase: ${pod.phase ?? "unknown"}`,
           `readiness: ${readiness}`,
+          `owner: ${pod.owner_name ?? "unknown"}`,
           `image: ${pod.image ?? "unknown"}`,
           `restarts: ${pod.restart_count}`
         ]
       })
     );
 
-    edges.push(
-      createEdge(`rs-pod-${pod.name}`, "rs", podId, "creates/manages", "ownership", "live"),
-      createEdge(`node-pod-${pod.name}`, workerNodeId, podId, "runs on", "placement", "live"),
-      createEdge(
-        `svc-pod-${pod.name}`,
-        "svc",
-        podId,
-        pod.ready ? "traffic allowed (Ready)" : "traffic blocked (Not Ready)",
-        pod.ready ? "traffic-ready" : "traffic-blocked",
-        "live"
-      )
-    );
+    if (ownerReplicaSetId) {
+      edges.push(createEdge(`rs-pod-${pod.name}`, ownerReplicaSetId, podId, "creates/manages", "ownership", "live"));
+    }
+
+    edges.push(createEdge(`node-pod-${pod.name}`, workerNodeId, podId, "runs on", "placement", "live"));
+
+    if (serviceExists) {
+      edges.push(
+        createEdge(
+          `svc-pod-${pod.name}`,
+          "svc",
+          podId,
+          trafficLabel,
+          trafficAllowed ? "traffic-ready" : "traffic-blocked",
+          "live"
+        )
+      );
+    }
   }
 
   if (omittedPodCount > 0) {
@@ -565,12 +606,14 @@ function baseGraphFromState(state: ClusterState | null): ClusterGraphShape {
         label: `Additional Pods\n+${omittedPodCount} omitted`,
         category: "live-workload",
         source: "live",
-        detail: "Graph intentionally caps pod nodes for projector readability. Full pod list is available in Workload Resources panel.",
+        detail: "Graph intentionally caps pod nodes for projector readability. Full pod list is available in the Lineage & Endpoints panel.",
         metadata: [`total pods observed: ${allPods.length}`, `pods drawn in graph: ${pods.length}`]
       })
     );
 
-    edges.push(createEdge("rs-overflow", "rs", "pod-overflow", "more pods", "ownership", "live"));
+    if (replicaSets[0]) {
+      edges.push(createEdge("rs-overflow", `rs:${replicaSets[0].name}`, "pod-overflow", "more pods", "ownership", "live"));
+    }
   }
 
   return { nodes, edges };

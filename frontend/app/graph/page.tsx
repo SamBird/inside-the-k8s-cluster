@@ -38,8 +38,8 @@ const focusModeConfig: Record<
 > = {
   overview: {
     label: "Overview",
-    description: "Clean default view of control-plane, ownership, and placement relationships.",
-    edgeKinds: ["conceptual-control", "reconciliation", "ownership", "placement"]
+    description: "Clean default view of control-plane, ownership, placement, and live service routing.",
+    edgeKinds: ["conceptual-control", "reconciliation", "ownership", "placement", "traffic-ready", "traffic-blocked"]
   },
   "control-loop": {
     label: "Control Loop",
