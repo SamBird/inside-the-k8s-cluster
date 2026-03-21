@@ -14,6 +14,7 @@ interface ActionControlsProps {
   onRollout: () => void;
   onGenerateTraffic: () => void;
   onReset: () => void;
+  onCancelAction: () => void;
 }
 
 function disabledIfBusy(busyAction: string | null): boolean {
@@ -35,7 +36,8 @@ export function ActionControls({
   onRestoreReadiness,
   onRollout,
   onGenerateTraffic,
-  onReset
+  onReset,
+  onCancelAction
 }: ActionControlsProps) {
   return (
     <section className="panel action-panel">
@@ -135,6 +137,9 @@ export function ActionControls({
           <span className="presenter-status-note">
             Waiting for Kubernetes reconciliation. Pod and readiness changes can take a few seconds.
           </span>
+          <button type="button" className="cancel-action-button" onClick={onCancelAction}>
+            Unlock
+          </button>
         </p>
       ) : null}
     </section>

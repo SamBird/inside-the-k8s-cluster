@@ -406,6 +406,21 @@ button {
   color: #6a4a00;
 }
 
+.cancel-action-button {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #6a4a00;
+  border-radius: 4px;
+  color: #6a4a00;
+  font-size: 0.82rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.cancel-action-button:hover {
+  background: #6a4a001a;
+}
+
 .button-with-spinner {
   display: inline-flex;
   align-items: center;

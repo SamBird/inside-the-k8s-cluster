@@ -182,6 +182,8 @@ export default function DashboardPage() {
   ): Promise<void> => {
     const actionStartedAtMs = Date.now();
     setBusyAction(actionLabel);
+    // Safety net: if the request hangs past 20s, unlock buttons automatically.
+    const safetyTimeout = setTimeout(() => setBusyAction(null), 20000);
     try {
       const result = await request();
       setState(result.state);
@@ -195,6 +197,7 @@ export default function DashboardPage() {
     } catch (error) {
       setTimeline((existing) => prependTimeline(existing, [newTimeline("error", `${actionLabel} failed`, String(error))]));
     } finally {
+      clearTimeout(safetyTimeout);
       const minimumVisibleMs = 700;
       const elapsedMs = Date.now() - actionStartedAtMs;
       if (elapsedMs < minimumVisibleMs) {
@@ -303,6 +306,7 @@ export default function DashboardPage() {
             busyAction={busyAction}
             onSelectPod={setSelectedPod}
             onRolloutVersion={setRolloutTag}
+            onCancelAction={() => setBusyAction(null)}
             onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
             onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
             onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}

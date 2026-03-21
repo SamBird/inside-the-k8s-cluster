@@ -27,27 +27,40 @@ function readErrorMessage(body: unknown): string {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(backendUrl(path), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    cache: "no-store"
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  let parsed: unknown = null;
   try {
-    parsed = await response.json();
-  } catch {
-    parsed = null;
-  }
+    const response = await fetch(backendUrl(path), {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {})
+      },
+      cache: "no-store"
+    });
 
-  if (!response.ok) {
-    throw new ApiError(response.status, readErrorMessage(parsed));
-  }
+    let parsed: unknown = null;
+    try {
+      parsed = await response.json();
+    } catch {
+      parsed = null;
+    }
 
-  return parsed as T;
+    if (!response.ok) {
+      throw new ApiError(response.status, readErrorMessage(parsed));
+    }
+
+    return parsed as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(408, "Request timed out after 15s — backend may be slow. Try again.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export function getState(): Promise<ClusterState> {
