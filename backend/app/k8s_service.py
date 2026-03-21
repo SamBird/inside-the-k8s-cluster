@@ -682,66 +682,6 @@ class KubernetesService:
                 f"(status={exc.status}, reason={exc.reason})"
             ) from exc
 
-    def _choose_readiness_failure_target(self, running_pods: list[client.V1Pod]) -> client.V1Pod:
-        already_unready = [pod for pod in running_pods if not self._pod_is_ready(pod)]
-        candidates = already_unready or [pod for pod in running_pods if self._pod_is_ready(pod)]
-        if not candidates:
-            raise BackendError("No running demo-app pods found to change readiness on")
-        return sorted(
-            candidates,
-            key=lambda pod: (
-                pod.metadata.creation_timestamp or datetime.max.replace(tzinfo=timezone.utc),
-                pod.metadata.name,
-            ),
-        )[0]
-
-    def _set_expected_pod_readiness(self, expected_by_pod: dict[str, bool]) -> None:
-        for pod_name, should_be_ready in expected_by_pod.items():
-            self._proxy_pod_readiness_change(pod_name, fail=not should_be_ready)
-
-    def _restore_previous_pod_readiness(self, previous_by_pod: dict[str, bool]) -> None:
-        try:
-            self._set_expected_pod_readiness(previous_by_pod)
-            self._wait_for_expected_pod_readiness(
-                expected_by_pod=previous_by_pod,
-                timeout_seconds=10,
-            )
-        except Exception:
-            pass
-
-    def _wait_for_expected_pod_readiness(
-        self,
-        expected_by_pod: dict[str, bool],
-        timeout_seconds: int = 20,
-    ) -> None:
-        assert self.core is not None
-        deadline = time.time() + timeout_seconds
-        pod_names = set(expected_by_pod)
-
-        while time.time() < deadline:
-            pods = self.core.list_namespaced_pod(
-                namespace=self.cfg.namespace,
-                label_selector=self.cfg.app_label,
-            ).items
-            current = {
-                pod.metadata.name: self._pod_is_ready(pod)
-                for pod in pods
-                if pod.metadata and pod.metadata.name in pod_names
-            }
-            if current.keys() == pod_names and all(
-                current[pod_name] == expected_by_pod[pod_name] for pod_name in sorted(pod_names)
-            ):
-                return
-            time.sleep(1)
-
-        expected_label = ", ".join(
-            f"{pod_name}={'Ready' if expected_by_pod[pod_name] else 'NotReady'}"
-            for pod_name in sorted(pod_names)
-        )
-        raise BackendError(
-            f"Timed out waiting for pod readiness to converge ({expected_label}). "
-            "The container state changed, but kubelet readiness probes did not converge in time."
-        )
 
     def restart_rollout(self) -> ActionResponse:
         self._ensure_clients()
@@ -803,113 +743,15 @@ class KubernetesService:
                 }
             },
         )
-        self._wait_for_rollout(version, timeout_seconds=75)
+        # Return immediately — the SSE stream will push pod transitions as the
+        # rolling update progresses. Blocking here hides the reconciliation
+        # behaviour the demo exists to show.
         return ActionResponse(
             action="rollout_version",
-            message=f"Rolled out image demo-app:{version} and APP_VERSION={version}",
+            message=f"Rollout started: demo-app:{version}. Watch pods update via SSE.",
             state=self.get_state(),
         )
 
-    def _wait_for_rollout(self, version: str, timeout_seconds: int = 75) -> None:
-        assert self.apps is not None
-        deadline = time.time() + timeout_seconds
-        expected_image = f"demo-app:{version}"
-
-        while time.time() < deadline:
-            deployment = self.apps.read_namespaced_deployment(
-                name=self.cfg.deployment_name,
-                namespace=self.cfg.namespace,
-            )
-            if self._deployment_is_ready(deployment, expected_image=expected_image):
-                return
-
-            failure_reason = self._rollout_failure_reason(expected_image=expected_image)
-            if failure_reason:
-                raise BackendError(failure_reason)
-
-            time.sleep(2)
-
-        raise BackendError(
-            f"Rollout to {expected_image} did not become ready within {timeout_seconds}s. "
-            f"If this is a new local image tag, run: make demo-image VERSION={version} && make demo-load VERSION={version}"
-        )
-
-    def _deployment_is_ready(self, deployment: client.V1Deployment, expected_image: str) -> bool:
-        status = deployment.status
-        spec = deployment.spec
-        template_spec = spec.template.spec if spec and spec.template else None
-        containers = template_spec.containers if template_spec else None
-        replicas = spec.replicas if spec and spec.replicas is not None else 0
-
-        template_has_expected_image = False
-        for container_def in containers or []:
-            if container_def.name == self.cfg.container_name and container_def.image == expected_image:
-                template_has_expected_image = True
-                break
-
-        if not template_has_expected_image:
-            return False
-
-        observed_generation = status.observed_generation if status and status.observed_generation is not None else 0
-        generation = deployment.metadata.generation if deployment.metadata and deployment.metadata.generation is not None else 0
-        updated_replicas = status.updated_replicas if status and status.updated_replicas is not None else 0
-        total_replicas = status.replicas if status and status.replicas is not None else 0
-        ready_replicas = status.ready_replicas if status and status.ready_replicas is not None else 0
-        available_replicas = status.available_replicas if status and status.available_replicas is not None else 0
-
-        return (
-            observed_generation >= generation
-            and total_replicas == replicas
-            and updated_replicas == replicas
-            and ready_replicas == replicas
-            and available_replicas == replicas
-        )
-
-    def _rollout_failure_reason(self, expected_image: str) -> str | None:
-        assert self.core is not None
-        pods = self.core.list_namespaced_pod(
-            namespace=self.cfg.namespace,
-            label_selector=self.cfg.app_label,
-        ).items
-
-        image_pull_reasons = {"ErrImagePull", "ImagePullBackOff", "InvalidImageName"}
-        crash_reasons = {"CrashLoopBackOff", "CreateContainerConfigError", "CreateContainerError"}
-
-        for pod in pods:
-            pod_name = pod.metadata.name if pod.metadata and pod.metadata.name else "<unknown-pod>"
-            pod_spec = pod.spec
-            pod_status = pod.status
-
-            uses_expected_image = False
-            for container_def in (pod_spec.containers if pod_spec and pod_spec.containers else []):
-                if container_def.name == self.cfg.container_name and container_def.image == expected_image:
-                    uses_expected_image = True
-                    break
-            if not uses_expected_image:
-                continue
-
-            for container_status in (pod_status.container_statuses if pod_status and pod_status.container_statuses else []):
-                waiting = container_status.state.waiting if container_status and container_status.state else None
-                if not waiting:
-                    continue
-                reason = waiting.reason or "Unknown"
-                message = waiting.message or ""
-
-                if reason in image_pull_reasons:
-                    return (
-                        f"Rollout failed on pod '{pod_name}' ({reason}). "
-                        f"Image '{expected_image}' is likely missing in the local cluster. "
-                        f"Build and load it first: make demo-image VERSION={expected_image.removeprefix('demo-app:')} "
-                        f"&& make demo-load VERSION={expected_image.removeprefix('demo-app:')}. "
-                        f"{message}".strip()
-                    )
-                if reason in crash_reasons:
-                    return (
-                        f"Rollout failed on pod '{pod_name}' ({reason}). "
-                        f"Check pod logs and probe configuration. "
-                        f"{message}".strip()
-                    )
-        return None
 
     def toggle_readiness_failure(self, fail: bool) -> ActionResponse:
         self._ensure_clients()
@@ -919,44 +761,26 @@ class KubernetesService:
         if not running_pods:
             raise BackendError("No running demo-app pods found to change readiness on")
 
-        previous_by_pod = {
-            pod.metadata.name: self._pod_is_ready(pod)
-            for pod in running_pods
-            if pod.metadata and pod.metadata.name
-        }
-        if not previous_by_pod:
-            raise BackendError("No running demo-app pods found to change readiness on")
-
         if fail:
-            target_pod = self._choose_readiness_failure_target(running_pods)
-            expected_by_pod = {
-                pod.metadata.name: pod.metadata.name != target_pod.metadata.name
-                for pod in running_pods
-                if pod.metadata and pod.metadata.name
-            }
-            success_message = (
-                f"Marked pod {target_pod.metadata.name} NotReady while leaving other running pods Ready"
-            )
+            # Pick the first ready pod as the target. If none are ready, use the first running pod.
+            ready_pods = [p for p in running_pods if self._pod_is_ready(p)]
+            target = (ready_pods or running_pods)[0]
+            pod_name = target.metadata.name
+            self._proxy_pod_readiness_change(pod_name, fail=True)
+            message = f"Marked pod {pod_name} NotReady. SSE will confirm when probe fails."
         else:
-            expected_by_pod = {pod_name: True for pod_name in previous_by_pod}
-            success_message = "Restored readiness on running demo-app pods without rollout"
+            # Restore all running pods to ready.
+            for pod in running_pods:
+                pod_name = pod.metadata.name
+                if pod_name:
+                    self._proxy_pod_readiness_change(pod_name, fail=False)
+            message = "Restored readiness on all running demo-app pods."
 
-        if previous_by_pod == expected_by_pod:
-            return ActionResponse(
-                action="toggle_readiness_failure",
-                message=success_message,
-                state=self.get_state(),
-            )
-
-        try:
-            self._set_expected_pod_readiness(expected_by_pod)
-            self._wait_for_expected_pod_readiness(expected_by_pod=expected_by_pod)
-        except Exception:
-            self._restore_previous_pod_readiness(previous_by_pod)
-            raise
+        # Return immediately — kubelet readiness probe interval determines when the
+        # pod flips NotReady/Ready in Kubernetes. SSE will push that change.
         return ActionResponse(
             action="toggle_readiness_failure",
-            message=success_message,
+            message=message,
             state=self.get_state(),
         )
 
