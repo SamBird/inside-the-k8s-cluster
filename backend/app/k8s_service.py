@@ -822,6 +822,9 @@ class KubernetesService:
         assert self.core is not None
         yield self._format_sse("state", {"state": jsonable_encoder(self.get_state())})
 
+        last_emit = time.time()
+        min_interval = 2.0  # seconds — collapses burst events during scale/rollout
+
         while True:
             watcher = watch.Watch()
             try:
@@ -832,8 +835,12 @@ class KubernetesService:
                     timeout_seconds=self.cfg.sse_watch_timeout_seconds,
                 )
                 for _ in stream:
+                    now = time.time()
+                    if now - last_emit < min_interval:
+                        continue
                     payload = {"state": jsonable_encoder(self.get_state())}
                     yield self._format_sse("state", payload)
+                    last_emit = time.time()
             except ApiException as exc:
                 payload = {"message": f"kubernetes_api_error status={exc.status}"}
                 yield self._format_sse("error", payload)
@@ -845,9 +852,11 @@ class KubernetesService:
             finally:
                 watcher.stop()
 
-            # timeout heartbeat so clients still receive updates when cluster is quiet
+            # Emit one final state after the watch timeout so the UI is always
+            # up to date when the cluster is quiet between demo actions.
             payload = {"state": jsonable_encoder(self.get_state())}
             yield self._format_sse("state", payload)
+            last_emit = time.time()
 
     def _ensure_namespace(self) -> None:
         assert self.core is not None
