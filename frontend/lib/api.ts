@@ -72,10 +72,6 @@ export function deletePod(pod_name?: string): Promise<ActionResponse> {
   });
 }
 
-export function restartRollout(): Promise<ActionResponse> {
-  return requestJson<ActionResponse>("/api/actions/restart-rollout", { method: "POST", body: "{}" });
-}
-
 export function rolloutVersion(version: string): Promise<ActionResponse> {
   return requestJson<ActionResponse>("/api/actions/rollout", {
     method: "POST",

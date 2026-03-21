@@ -105,15 +105,6 @@ def delete_pod(req: DeletePodRequest) -> ActionResponse:
         raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
 
 
-@app.post("/api/actions/restart-rollout", response_model=ActionResponse)
-def restart_rollout() -> ActionResponse:
-    try:
-        return service.restart_rollout()
-    except BackendError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ApiException as exc:
-        raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
-
 
 @app.post("/api/actions/rollout", response_model=ActionResponse)
 def rollout(req: RolloutRequest) -> ActionResponse:

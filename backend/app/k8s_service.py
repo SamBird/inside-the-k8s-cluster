@@ -683,33 +683,6 @@ class KubernetesService:
             ) from exc
 
 
-    def restart_rollout(self) -> ActionResponse:
-        self._ensure_clients()
-        self._ensure_deployment_exists()
-        assert self.apps is not None
-        ts = datetime.now(timezone.utc).isoformat()
-        body = {
-            "spec": {
-                "template": {
-                    "metadata": {
-                        "annotations": {
-                            "kubectl.kubernetes.io/restartedAt": ts,
-                        }
-                    }
-                }
-            }
-        }
-        self.apps.patch_namespaced_deployment(
-            name=self.cfg.deployment_name,
-            namespace=self.cfg.namespace,
-            body=body,
-        )
-        return ActionResponse(
-            action="restart_rollout",
-            message="Triggered Deployment rollout restart",
-            state=self.get_state(),
-        )
-
     def rollout_version(self, version: str) -> ActionResponse:
         self._ensure_clients()
         self._ensure_deployment_exists()
@@ -822,7 +795,22 @@ class KubernetesService:
             namespace=self.cfg.namespace,
             body={"spec": {"replicas": 1}},
         )
-        self.restart_rollout()
+        ts = datetime.now(timezone.utc).isoformat()
+        self.apps.patch_namespaced_deployment(
+            name=self.cfg.deployment_name,
+            namespace=self.cfg.namespace,
+            body={
+                "spec": {
+                    "template": {
+                        "metadata": {
+                            "annotations": {
+                                "kubectl.kubernetes.io/restartedAt": ts,
+                            }
+                        }
+                    }
+                }
+            },
+        )
         return ActionResponse(
             action="reset_demo",
             message="Reset to v1, readiness=true, replicas=1",

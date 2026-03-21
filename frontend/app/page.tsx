@@ -11,13 +11,11 @@ import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
 import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
 import {
-  ApiError,
   deletePod,
   deployApp,
   getTrafficInfo,
   getState,
   resetDemo,
-  restartRollout,
   rolloutVersion,
   scaleDeployment,
   subscribeToState,
@@ -317,28 +315,7 @@ export default function DashboardPage() {
                 setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "Rollout tag is required")]));
                 return;
               }
-              runAction(
-                `Rollout ${tag}`,
-                async () => {
-                  try {
-                    return await rolloutVersion(tag);
-                  } catch (error) {
-                    if (error instanceof ApiError && error.status === 404) {
-                      setTimeline((existing) =>
-                        prependTimeline(existing, [
-                          newTimeline("warn", "Backend rollout endpoint missing", "Falling back to restart-rollout action")
-                        ])
-                      );
-                      return await restartRollout();
-                    }
-                    if (error instanceof ApiError) {
-                      throw error;
-                    }
-                    throw error;
-                  }
-                },
-                { deployed: true, version: tag }
-              );
+              runAction(`Rollout ${tag}`, () => rolloutVersion(tag), { deployed: true, version: tag });
             }}
             onGenerateTraffic={onGenerateTraffic}
             onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
