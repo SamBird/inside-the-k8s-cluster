@@ -500,6 +500,101 @@ button {
 }
 
 
+.control-plane-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.control-plane-card {
+  border: 1px solid #a6bbc7;
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, #fbfdff, #f4f9fc);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.control-plane-card h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.control-plane-card p {
+  margin: 4px 0;
+  font-size: 0.88rem;
+}
+
+.control-plane-section {
+  margin-top: 16px;
+}
+
+.control-plane-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.control-plane-live {
+  margin-top: 20px;
+}
+
+.cluster-context-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cluster-context-card {
+  border: 1px solid #b0c3cf;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.cluster-context-card h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.control-plane-note {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px dashed #8ca5b5;
+  background: #f8fbfd;
+}
+
+.control-plane-node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.control-plane-node-card {
+  border: 1px solid #8ca5b5;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.control-plane-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-plane-labels {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .label-chip {
   display: inline-flex;
   align-items: center;
@@ -877,6 +972,86 @@ button {
 
 .level-error {
   border-left-color: var(--bad);
+}
+
+/* Kubernetes events section within EventTimeline */
+.k8s-events-header {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #d1dde6;
+}
+
+.k8s-events-list {
+  max-height: 340px;
+}
+
+.k8s-event-item {
+  border-left-width: 4px;
+}
+
+.k8s-event-normal {
+  border-left-color: var(--accent);
+  background: #f3fbfb;
+}
+
+.k8s-event-warning {
+  border-left-color: var(--warn);
+  background: #fffaf0;
+}
+
+.k8s-component-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.k8s-tag-scheduler {
+  background: #e8f0fe;
+  color: #1a56db;
+}
+
+.k8s-tag-kubelet {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.k8s-tag-controller-manager {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.k8s-event-count {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.k8s-event-object {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+/* Control plane card activity pulse */
+.control-plane-card-active {
+  animation: cp-pulse 1.5s ease-in-out infinite;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(15, 139, 141, 0.18);
+}
+
+@keyframes cp-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(15, 139, 141, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(15, 139, 141, 0.10);
+  }
 }
 
 .traffic-controls {

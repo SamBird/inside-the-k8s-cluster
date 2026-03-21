@@ -105,6 +105,20 @@ export interface TimelineEvent {
   detail?: string;
 }
 
+export interface KubernetesEvent {
+  reason: string;
+  message: string;
+  object_kind: string;
+  object_name: string;
+  event_type: "Normal" | "Warning";
+  source_component?: string | null;
+  first_seen?: string | null;
+  last_seen?: string | null;
+  count: number;
+}
+
+export type ControlPlaneComponent = "kube-apiserver" | "etcd" | "kube-scheduler" | "kube-controller-manager";
+
 export interface DemoTrafficResponse {
   podName?: string;
   nodeName?: string;

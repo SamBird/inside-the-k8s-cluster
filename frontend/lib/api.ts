@@ -1,4 +1,4 @@
-import { ActionResponse, ClusterState, DemoTrafficResponse } from "./types";
+import { ActionResponse, ClusterState, DemoTrafficResponse, KubernetesEvent } from "./types";
 
 const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
@@ -140,6 +140,44 @@ export function subscribeToState(options: {
 
   source.onerror = () => {
     options.onError("Connection lost; browser will retry.");
+  };
+
+  return () => {
+    source.close();
+  };
+}
+
+export function subscribeToK8sEvents(options: {
+  onEvent: (event: KubernetesEvent) => void;
+  onError: (message: string) => void;
+  onOpen: () => void;
+}): () => void {
+  const source = new EventSource(backendUrl("/api/events/k8s"));
+
+  source.addEventListener("k8s_event", (event) => {
+    try {
+      const parsed = JSON.parse((event as MessageEvent).data) as KubernetesEvent;
+      options.onEvent(parsed);
+    } catch (error) {
+      options.onError(`Failed to parse k8s event: ${String(error)}`);
+    }
+  });
+
+  source.addEventListener("error", (event) => {
+    try {
+      const parsed = JSON.parse((event as MessageEvent).data) as { message?: string };
+      options.onError(parsed.message ?? "K8s event stream error");
+    } catch {
+      options.onError("K8s event stream error");
+    }
+  });
+
+  source.onopen = () => {
+    options.onOpen();
+  };
+
+  source.onerror = () => {
+    options.onError("K8s event stream connection lost; browser will retry.");
   };
 
   return () => {

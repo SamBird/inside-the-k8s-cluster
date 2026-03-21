@@ -1,8 +1,8 @@
-import { ClusterState, NodeState } from "../lib/types";
+import { ClusterState, ControlPlaneComponent, NodeState } from "../lib/types";
 import { StatusBadge } from "./StatusBadge";
 
 interface ControlPlaneCard {
-  name: string;
+  name: ControlPlaneComponent;
   does: string;
   when: string;
   reconcile: string;
@@ -37,6 +37,7 @@ const controlPlaneCards: ControlPlaneCard[] = [
 
 interface ControlPlaneOverviewProps {
   state: ClusterState | null;
+  activeComponents?: Set<ControlPlaneComponent>;
 }
 
 function isControlPlaneNode(node: NodeState): boolean {
@@ -47,7 +48,7 @@ function isControlPlaneNode(node: NodeState): boolean {
   return roles.includes("control-plane") || roles.includes("master");
 }
 
-export function ControlPlaneOverview({ state }: ControlPlaneOverviewProps) {
+export function ControlPlaneOverview({ state, activeComponents }: ControlPlaneOverviewProps) {
   const nodes = state?.nodes ?? [];
   const controlPlaneNodes = nodes.filter(isControlPlaneNode);
   const workerNodes = nodes.filter((node) => !isControlPlaneNode(node));
@@ -72,20 +73,26 @@ export function ControlPlaneOverview({ state }: ControlPlaneOverviewProps) {
         </p>
       </div>
       <div className="control-plane-grid">
-        {controlPlaneCards.map((item) => (
-          <article key={item.name} className="control-plane-card">
-            <h3>{item.name}</h3>
-            <p>
-              <strong>What it does:</strong> {item.does}
-            </p>
-            <p>
-              <strong>When involved:</strong> {item.when}
-            </p>
-            <p>
-              <strong>Desired vs actual:</strong> {item.reconcile}
-            </p>
-          </article>
-        ))}
+        {controlPlaneCards.map((item) => {
+          const isActive = activeComponents?.has(item.name) ?? false;
+          return (
+            <article
+              key={item.name}
+              className={`control-plane-card${isActive ? " control-plane-card-active" : ""}`}
+            >
+              <h3>{item.name}</h3>
+              <p>
+                <strong>What it does:</strong> {item.does}
+              </p>
+              <p>
+                <strong>When involved:</strong> {item.when}
+              </p>
+              <p>
+                <strong>Desired vs actual:</strong> {item.reconcile}
+              </p>
+            </article>
+          );
+        })}
       </div>
 
       <div className="control-plane-section control-plane-live">

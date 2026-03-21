@@ -55,6 +55,17 @@ def events() -> StreamingResponse:
     return StreamingResponse(service.sse_state_stream(), media_type="text/event-stream")
 
 
+@app.get("/api/events/k8s")
+def k8s_events() -> StreamingResponse:
+    try:
+        service.get_state()
+    except BackendError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ApiException as exc:
+        raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
+    return StreamingResponse(service.sse_k8s_events_stream(), media_type="text/event-stream")
+
+
 @app.get("/api/traffic/info", response_model=TrafficInfoResponse)
 def traffic_info() -> TrafficInfoResponse:
     try:

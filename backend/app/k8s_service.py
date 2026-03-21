@@ -630,6 +630,86 @@ class KubernetesService:
             state=self.get_state(),
         )
 
+    @staticmethod
+    def _k8s_event_to_dict(event: client.CoreV1Event) -> dict:
+        involved = event.involved_object
+        source = event.source
+        return {
+            "reason": event.reason or "Unknown",
+            "message": event.message or "",
+            "object_kind": involved.kind if involved else "Unknown",
+            "object_name": involved.name if involved else "Unknown",
+            "event_type": event.type or "Normal",
+            "source_component": source.component if source else None,
+            "first_seen": event.first_timestamp.isoformat() if event.first_timestamp else None,
+            "last_seen": event.last_timestamp.isoformat() if event.last_timestamp else None,
+            "count": event.count or 1,
+        }
+
+    def sse_k8s_events_stream(self) -> Generator[str, None, None]:
+        """Stream real Kubernetes events from the demo namespace via SSE."""
+        self._ensure_clients()
+        assert self.core is not None
+
+        # Send snapshot of recent events on connect.
+        try:
+            event_list = self.core.list_namespaced_event(namespace=self.cfg.namespace)
+        except ApiException as exc:
+            yield self._format_sse("error", {"message": f"k8s_events_list_error status={exc.status}"})
+            return
+
+        recent = sorted(
+            event_list.items,
+            key=lambda e: e.metadata.creation_timestamp or datetime.min.replace(tzinfo=timezone.utc),
+        )[-30:]
+
+        for ev in recent:
+            yield self._format_sse("k8s_event", self._k8s_event_to_dict(ev))
+
+        # Watch for new events.
+        last_emit = time.time()
+        min_interval = 1.0
+        seen_uids: dict[str, int] = {
+            ev.metadata.uid: (ev.count or 1) for ev in recent if ev.metadata.uid
+        }
+
+        while True:
+            watcher = watch.Watch()
+            try:
+                stream = watcher.stream(
+                    self.core.list_namespaced_event,
+                    namespace=self.cfg.namespace,
+                    timeout_seconds=self.cfg.sse_watch_timeout_seconds,
+                )
+                for watch_event in stream:
+                    if watch_event["type"] not in ("ADDED", "MODIFIED"):
+                        continue
+
+                    ev = watch_event["object"]
+                    uid = ev.metadata.uid
+                    count = ev.count or 1
+
+                    # Skip MODIFIED events that haven't incremented count.
+                    if uid and uid in seen_uids and count <= seen_uids[uid]:
+                        continue
+                    if uid:
+                        seen_uids[uid] = count
+
+                    now = time.time()
+                    if now - last_emit < min_interval:
+                        continue
+
+                    yield self._format_sse("k8s_event", self._k8s_event_to_dict(ev))
+                    last_emit = now
+            except ApiException as exc:
+                yield self._format_sse("error", {"message": f"k8s_events_api_error status={exc.status}"})
+                time.sleep(1)
+            except Exception as exc:
+                yield self._format_sse("error", {"message": f"k8s_events_stream_error {type(exc).__name__}: {exc}"})
+                time.sleep(1)
+            finally:
+                watcher.stop()
+
     def sse_state_stream(self) -> Generator[str, None, None]:
         self._ensure_clients()
         assert self.core is not None

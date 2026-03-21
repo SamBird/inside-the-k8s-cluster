@@ -19,6 +19,7 @@ import {
   resetDemo,
   rolloutVersion,
   scaleDeployment,
+  subscribeToK8sEvents,
   subscribeToState,
   toggleReadiness
 } from "../lib/api";
@@ -29,6 +30,7 @@ import {
   ConnectionState,
   DemoTrafficResponse,
   DesiredState,
+  KubernetesEvent,
   TimelineEvent,
   TrafficEvent
 } from "../lib/types";
@@ -87,6 +89,7 @@ export default function DashboardPage() {
   const [trafficCount, setTrafficCount] = useState<number>(12);
   const [trafficRunning, setTrafficRunning] = useState<boolean>(false);
   const [trafficEvents, setTrafficEvents] = useState<TrafficEvent[]>([]);
+  const [k8sEvents, setK8sEvents] = useState<KubernetesEvent[]>([]);
 
   const previousStateRef = useRef<ClusterState | null>(null);
 
@@ -136,9 +139,18 @@ export default function DashboardPage() {
       }
     });
 
+    const unsubscribeK8s = subscribeToK8sEvents({
+      onEvent: (event) => {
+        setK8sEvents((existing) => [event, ...existing].slice(0, 30));
+      },
+      onError: () => {},
+      onOpen: () => {}
+    });
+
     return () => {
       cancelled = true;
       unsubscribe();
+      unsubscribeK8s();
     };
   }, []);
 
@@ -354,7 +366,7 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
 
         <div className="layout-span-2 reveal-6">
           <PanelErrorBoundary label="Event Timeline">
-            <EventTimeline events={timeline} />
+            <EventTimeline events={timeline} k8sEvents={k8sEvents} />
           </PanelErrorBoundary>
         </div>
       </section>

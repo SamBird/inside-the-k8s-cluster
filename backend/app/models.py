@@ -114,6 +114,18 @@ class SSEEnvelope(BaseModel):
     message: str | None = None
 
 
+class KubernetesEventItem(BaseModel):
+    reason: str
+    message: str
+    object_kind: str
+    object_name: str
+    event_type: str = "Normal"
+    source_component: str | None = None
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    count: int = 1
+
+
 class TrafficInfoResponse(BaseModel):
     podName: str | None = None
     nodeName: str | None = None
