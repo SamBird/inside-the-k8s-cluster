@@ -92,13 +92,31 @@ export function diffState(prev: ClusterState | null, next: ClusterState): Timeli
     );
   }
 
-  return out;
+  if (out.length <= 2) {
+    return out;
+  }
+
+  // Collapse burst into a single summary event to keep the timeline readable.
+  const podCreated = out.filter((e) => e.title === "Pod created").length;
+  const podRemoved = out.filter((e) => e.title === "Pod removed").length;
+  const readinessChanged = out.filter((e) => e.title === "Pod readiness changed").length;
+  const other = out.filter(
+    (e) => e.title !== "Pod created" && e.title !== "Pod removed" && e.title !== "Pod readiness changed"
+  );
+
+  const parts: string[] = [];
+  if (podCreated > 0) parts.push(`${podCreated} pod${podCreated > 1 ? "s" : ""} created`);
+  if (podRemoved > 0) parts.push(`${podRemoved} pod${podRemoved > 1 ? "s" : ""} removed`);
+  if (readinessChanged > 0) parts.push(`${readinessChanged} readiness change${readinessChanged > 1 ? "s" : ""}`);
+
+  const summary = event("info", "Cluster state updated", parts.join(" · ") || undefined);
+  return [...other, summary];
 }
 
 export function prependTimeline(
   existing: TimelineEvent[],
   additions: TimelineEvent[],
-  maxItems = 120
+  maxItems = 20
 ): TimelineEvent[] {
   return [...additions, ...existing].slice(0, maxItems);
 }
