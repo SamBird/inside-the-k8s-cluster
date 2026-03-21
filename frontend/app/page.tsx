@@ -7,6 +7,7 @@ import { DesiredActualPanel } from "../components/DesiredActualPanel";
 import { EventTimeline } from "../components/EventTimeline";
 import { PageNav } from "../components/PageNav";
 import { PageHero } from "../components/PageHero";
+import { PanelErrorBoundary } from "../components/PanelErrorBoundary";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
 import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
@@ -291,58 +292,70 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
 
       <section className="dashboard-grid">
         <div className="reveal-3">
-          <ActionControls
-            podOptions={podOptions}
-            selectedPod={selectedPod}
-            rolloutVersion={rolloutTag}
-            busyAction={busyAction}
-            onSelectPod={setSelectedPod}
-            onRolloutVersion={setRolloutTag}
-            onCancelAction={() => setBusyAction(null)}
-            onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
-            onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
-            onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
-            onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
-            onBreakReadiness={() => runAction("Break readiness", () => toggleReadiness(true))}
-            onRestoreReadiness={() => runAction("Restore readiness", () => toggleReadiness(false))}
-            onRollout={() => {
-              const tag = rolloutTag.trim();
-              if (!tag) {
-                setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "Rollout tag is required")]));
-                return;
-              }
-              runAction(`Rollout ${tag}`, () => rolloutVersion(tag), { deployed: true, version: tag });
-            }}
-            onGenerateTraffic={onGenerateTraffic}
-            onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
-          />
+          <PanelErrorBoundary label="Action Controls">
+            <ActionControls
+              podOptions={podOptions}
+              selectedPod={selectedPod}
+              rolloutVersion={rolloutTag}
+              busyAction={busyAction}
+              onSelectPod={setSelectedPod}
+              onRolloutVersion={setRolloutTag}
+              onCancelAction={() => setBusyAction(null)}
+              onDeploy={() => runAction("Deploy app", deployApp, { deployed: true })}
+              onScale1={() => runAction("Scale to 1", () => scaleDeployment(1), { deployed: true, replicas: 1 })}
+              onScale3={() => runAction("Scale to 3", () => scaleDeployment(3), { deployed: true, replicas: 3 })}
+              onDeletePod={() => runAction("Delete pod", () => deletePod(selectedPod || undefined))}
+              onBreakReadiness={() => runAction("Break readiness", () => toggleReadiness(true))}
+              onRestoreReadiness={() => runAction("Restore readiness", () => toggleReadiness(false))}
+              onRollout={() => {
+                const tag = rolloutTag.trim();
+                if (!tag) {
+                  setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "Rollout tag is required")]));
+                  return;
+                }
+                runAction(`Rollout ${tag}`, () => rolloutVersion(tag), { deployed: true, version: tag });
+              }}
+              onGenerateTraffic={onGenerateTraffic}
+              onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
+            />
+          </PanelErrorBoundary>
         </div>
 
         <div className="reveal-4">
-          <DesiredActualPanel desired={desired} actual={state} />
+          <PanelErrorBoundary label="Desired vs Actual">
+            <DesiredActualPanel desired={desired} actual={state} />
+          </PanelErrorBoundary>
         </div>
 
         <div className="layout-span-2 reveal-5">
-          <TopologyView state={state} />
+          <PanelErrorBoundary label="Topology">
+            <TopologyView state={state} />
+          </PanelErrorBoundary>
         </div>
 
         <div className="layout-span-2">
-          <WorkloadResourcesPanel state={state} />
+          <PanelErrorBoundary label="Ownership">
+            <WorkloadResourcesPanel state={state} />
+          </PanelErrorBoundary>
         </div>
 
         <div className="layout-span-2 reveal-6">
-          <TrafficPanel
-            requestCount={trafficCount}
-            running={trafficRunning}
-            events={trafficEvents}
-            onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
-            onGenerate={onGenerateTraffic}
-            onClear={() => setTrafficEvents([])}
-          />
+          <PanelErrorBoundary label="Traffic">
+            <TrafficPanel
+              requestCount={trafficCount}
+              running={trafficRunning}
+              events={trafficEvents}
+              onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
+              onGenerate={onGenerateTraffic}
+              onClear={() => setTrafficEvents([])}
+            />
+          </PanelErrorBoundary>
         </div>
 
         <div className="layout-span-2 reveal-6">
-          <EventTimeline events={timeline} />
+          <PanelErrorBoundary label="Event Timeline">
+            <EventTimeline events={timeline} />
+          </PanelErrorBoundary>
         </div>
       </section>
     </main>
