@@ -144,8 +144,7 @@ export default function DashboardPage() {
   const podOptions = useMemo(() => state?.pods.map((pod) => pod.name) ?? [], [state?.pods]);
   const readyPods = state?.pods.filter((pod) => pod.ready).length ?? 0;
   const failingPods = state?.pods.filter((pod) => !pod.ready).length ?? 0;
-  const workerCount = state?.nodes.filter((node) => node.role !== "control-plane").length ?? 0;
-  const expectedReadyPods = desired.deployed ? desired.replicas : 0;
+const expectedReadyPods = desired.deployed ? desired.replicas : 0;
   const driftCount = state
     ? [
         desired.deployed !== state.deployment.exists,
@@ -274,24 +273,19 @@ export default function DashboardPage() {
 
       <section className="summary-strip reveal-2" aria-label="Live demo summary">
         <article className="summary-card">
-          <span className="summary-label">Pods Ready</span>
+          <span className="summary-label">Pods</span>
           <strong>{state ? `${readyPods}/${state.pods.length}` : "--"}</strong>
-          <p>{failingPods > 0 ? `${failingPods} attention signal${failingPods > 1 ? "s" : ""}` : "Service looks healthy"}</p>
-        </article>
-        <article className="summary-card">
-          <span className="summary-label">Workers</span>
-          <strong>{state ? workerCount : "--"}</strong>
-          <p>{state ? `${state.namespace} namespace in focus` : "Waiting for cluster state"}</p>
-        </article>
-        <article className="summary-card">
-          <span className="summary-label">Version</span>
-          <strong>{versionLabel}</strong>
-          <p>{desired.version === versionLabel ? "Desired and running version aligned" : "Rollout drift is visible"}</p>
+          <p>{failingPods > 0 ? `${failingPods} attention signal${failingPods > 1 ? "s" : ""}` : `Running ${versionLabel}`}</p>
         </article>
         <article className="summary-card">
           <span className="summary-label">Drift</span>
           <strong>{state ? driftCount : "--"}</strong>
-          <p>{driftCount === 0 ? "Desired and actual state match" : "Useful for explaining reconciliation"}</p>
+          <p>{driftCount === 0 ? "In sync" : "Reconciling..."}</p>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Cluster</span>
+          <strong>{clusterLabel}</strong>
+          <p>Backend: {connection}</p>
         </article>
       </section>
 

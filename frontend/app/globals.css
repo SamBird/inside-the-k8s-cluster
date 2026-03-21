@@ -271,7 +271,7 @@ button {
 .summary-strip {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -286,7 +286,7 @@ button {
 .summary-card strong {
   display: block;
   margin-top: 4px;
-  font-size: clamp(1.5rem, 2vw, 2.1rem);
+  font-size: clamp(2rem, 2.5vw, 2.8rem);
   line-height: 1;
 }
 
@@ -297,7 +297,7 @@ button {
 }
 
 .summary-label {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
