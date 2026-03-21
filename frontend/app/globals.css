@@ -469,24 +469,20 @@ button {
   background: #fff;
 }
 
-.state-table,
-.traffic-table {
+.state-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.93rem;
 }
 
 .state-table th,
-.state-table td,
-.traffic-table th,
-.traffic-table td {
+.state-table td {
   border-bottom: 1px solid #d1dde6;
   padding: 8px;
   vertical-align: top;
 }
 
-.state-table th,
-.traffic-table th {
+.state-table th {
   text-align: left;
   background: #edf3f7;
 }
@@ -688,21 +684,6 @@ button {
   color: var(--ink-soft);
 }
 
-.service-box {
-  margin: 10px 0;
-  padding: 10px;
-  border: 2px solid #2d6f95;
-  border-radius: 10px;
-  background: #f1fbff;
-}
-
-.service-box h4 {
-  margin: 0 0 4px;
-}
-
-.service-box p {
-  margin: 3px 0;
-}
 
 .node-columns {
   display: grid;
@@ -768,10 +749,6 @@ button {
   margin: 0;
 }
 
-.resource-card p {
-  margin: 6px 0;
-  font-size: 0.93rem;
-}
 
 .lineage-root {
   margin-top: 10px;
