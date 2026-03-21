@@ -7,7 +7,6 @@ from .k8s_service import BackendError, KubernetesService
 from .models import (
     ActionResponse,
     ClusterState,
-    ControlPlaneState,
     DeletePodRequest,
     RolloutRequest,
     ScaleRequest,
@@ -42,15 +41,6 @@ def current_state() -> ClusterState:
     except ApiException as exc:
         raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
 
-
-@app.get("/api/control-plane", response_model=ControlPlaneState)
-def control_plane_state() -> ControlPlaneState:
-    try:
-        return service.get_control_plane_state()
-    except BackendError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except ApiException as exc:
-        raise HTTPException(status_code=502, detail=f"kubernetes_api_error status={exc.status}") from exc
 
 
 @app.get("/api/events")

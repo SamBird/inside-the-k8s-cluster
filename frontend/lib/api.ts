@@ -1,4 +1,4 @@
-import { ActionResponse, ClusterState, ControlPlaneState, DemoTrafficResponse } from "./types";
+import { ActionResponse, ClusterState, DemoTrafficResponse } from "./types";
 
 const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
@@ -105,10 +105,6 @@ export function resetDemo(): Promise<ActionResponse> {
 
 export function getTrafficInfo(): Promise<DemoTrafficResponse> {
   return requestJson<DemoTrafficResponse>("/api/traffic/info", { method: "GET" });
-}
-
-export function getControlPlaneState(): Promise<ControlPlaneState> {
-  return requestJson<ControlPlaneState>("/api/control-plane", { method: "GET" });
 }
 
 export function subscribeToState(options: {

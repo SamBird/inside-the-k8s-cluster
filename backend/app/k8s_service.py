@@ -16,9 +16,6 @@ from .config import Settings, settings
 from .models import (
     ActionResponse,
     ClusterState,
-    ControlPlaneComponentState,
-    ControlPlaneLeaseState,
-    ControlPlaneState,
     DemoConfigState,
     DeploymentState,
     NodeState,
@@ -34,50 +31,12 @@ class BackendError(RuntimeError):
     pass
 
 
-CONTROL_PLANE_COMPONENTS: tuple[dict[str, str], ...] = (
-    {
-        "key": "kube-apiserver",
-        "title": "kube-apiserver",
-        "what": "Front door for Kubernetes API requests. Validates requests and persists object changes.",
-        "when": "Every kubectl apply/patch/scale and every controller write.",
-        "reconcile": "Publishes desired state updates that controllers and schedulers react to."
-    },
-    {
-        "key": "etcd",
-        "title": "etcd",
-        "what": "Distributed key-value store for Kubernetes object state.",
-        "when": "Any API read/write of cluster objects.",
-        "reconcile": "Source of truth that desired and observed object state are compared against."
-    },
-    {
-        "key": "kube-scheduler",
-        "title": "kube-scheduler",
-        "what": "Assigns pending Pods to suitable nodes.",
-        "when": "Whenever new pods are created without node assignment.",
-        "reconcile": "Moves pending workload toward the declared replica count by selecting placement."
-    },
-    {
-        "key": "kube-controller-manager",
-        "title": "kube-controller-manager",
-        "what": "Runs reconciliation loops for Deployments, ReplicaSets, Nodes, and more.",
-        "when": "Continuously, especially after deploy/scale/delete/rollout changes.",
-        "reconcile": "Detects drift and issues API updates until actual state matches desired state."
-    },
-)
-
-LEASE_NAME_BY_COMPONENT = {
-    "kube-scheduler": "kube-scheduler",
-    "kube-controller-manager": "kube-controller-manager",
-}
-
-
 class KubernetesService:
     def __init__(self, cfg: Settings = settings) -> None:
         self.cfg = cfg
         self.api_client: client.ApiClient | None = None
         self.core: client.CoreV1Api | None = None
         self.apps: client.AppsV1Api | None = None
-        self.coordination: client.CoordinationV1Api | None = None
 
     @staticmethod
     def _load_kube_config() -> str | None:
@@ -106,7 +65,6 @@ class KubernetesService:
         self.api_client = None
         self.core = None
         self.apps = None
-        self.coordination = None
 
     def _ensure_clients(self) -> None:
         desired_host = self._load_kube_config()
@@ -117,7 +75,6 @@ class KubernetesService:
         if (
             self.core is not None
             and self.apps is not None
-            and self.coordination is not None
             and current_host == desired_host
         ):
             return
@@ -126,7 +83,6 @@ class KubernetesService:
         self.api_client = client.ApiClient()
         self.core = client.CoreV1Api(self.api_client)
         self.apps = client.AppsV1Api(self.api_client)
-        self.coordination = client.CoordinationV1Api(self.api_client)
 
     def _manifest(self, name: str) -> dict:
         path = Path(self.cfg.manifest_dir) / name
@@ -153,111 +109,6 @@ class KubernetesService:
             pods=pods_state,
             config=config_state,
             updated_at=datetime.now(timezone.utc),
-        )
-
-    def get_control_plane_state(self) -> ControlPlaneState:
-        self._ensure_clients()
-        assert self.core is not None
-        assert self.coordination is not None
-
-        kube_system_namespace = "kube-system"
-        discovery_warnings: list[str] = []
-        control_plane_node_names: list[str] = []
-
-        components: dict[str, ControlPlaneComponentState] = {}
-        for descriptor in CONTROL_PLANE_COMPONENTS:
-            key = descriptor["key"]
-            components[key] = ControlPlaneComponentState(
-                key=key,  # type: ignore[arg-type]
-                title=descriptor["title"],
-                what_it_does=descriptor["what"],
-                when_involved=descriptor["when"],
-                reconciliation_link=descriptor["reconcile"],
-            )
-
-        try:
-            nodes_state = self._get_nodes_state()
-            control_plane_node_names = [
-                node.name
-                for node in nodes_state
-                if node.role == "control-plane" or "control-plane" in (node.roles or []) or "master" in (node.roles or [])
-            ]
-        except ApiException as exc:
-            discovery_warnings.append(f"Node discovery failed with status={exc.status}")
-
-        pods: list[client.V1Pod] = []
-        try:
-            pods = self.core.list_namespaced_pod(namespace=kube_system_namespace).items
-        except ApiException as exc:
-            discovery_warnings.append(
-                f"Unable to list control-plane pods from namespace '{kube_system_namespace}' (status={exc.status})."
-            )
-
-        for descriptor in CONTROL_PLANE_COMPONENTS:
-            key = descriptor["key"]
-            component = components[key]
-            pod = self._find_control_plane_pod(pods, key)
-            if pod is None:
-                component.notes.append(
-                    f"No pod discovered for {key} in namespace '{kube_system_namespace}'. "
-                    "This can happen if RBAC restricts access or when control-plane components are managed outside pod APIs."
-                )
-                continue
-
-            component.observed = True
-            component.pod_name = pod.metadata.name if pod.metadata else None
-            component.phase = pod.status.phase if pod.status else None
-            component.node_name = pod.spec.node_name if pod.spec else None
-            component.pod_ip = pod.status.pod_ip if pod.status else None
-            component.started_at = pod.status.start_time if pod.status else None
-
-            if pod.status and pod.status.container_statuses:
-                container_statuses = pod.status.container_statuses
-                component.ready = all(cs.ready for cs in container_statuses)
-                component.restart_count = sum(cs.restart_count for cs in container_statuses)
-                component.image = container_statuses[0].image or (
-                    pod.spec.containers[0].image if pod.spec and pod.spec.containers else None
-                )
-            elif pod.spec and pod.spec.containers:
-                component.image = pod.spec.containers[0].image
-
-            if component.phase and component.phase != "Running":
-                component.notes.append(f"Pod phase is {component.phase}, so this component may not be healthy.")
-            if not component.ready:
-                component.notes.append("Container readiness is not fully healthy.")
-            if component.restart_count > 0:
-                component.notes.append(f"Container restart count observed: {component.restart_count}.")
-
-        try:
-            leases = self.coordination.list_namespaced_lease(namespace=kube_system_namespace).items
-            for component_key, lease_name in LEASE_NAME_BY_COMPONENT.items():
-                component = components[component_key]
-                lease = self._find_component_lease(leases, lease_name)
-                if lease is None:
-                    component.notes.append(
-                        f"Leader lease '{lease_name}' not discovered in '{kube_system_namespace}'."
-                    )
-                    continue
-                lease_spec = lease.spec
-                component.lease = ControlPlaneLeaseState(
-                    name=lease.metadata.name if lease.metadata else lease_name,
-                    holder_identity=lease_spec.holder_identity if lease_spec else None,
-                    renew_time=lease_spec.renew_time if lease_spec else None,
-                    acquire_time=lease_spec.acquire_time if lease_spec else None,
-                    lease_duration_seconds=lease_spec.lease_duration_seconds if lease_spec else None,
-                    lease_transitions=lease_spec.lease_transitions if lease_spec else None,
-                )
-        except ApiException as exc:
-            discovery_warnings.append(
-                f"Unable to read leader leases from namespace '{kube_system_namespace}' (status={exc.status})."
-            )
-
-        return ControlPlaneState(
-            namespace=kube_system_namespace,
-            discovered_at=datetime.now(timezone.utc),
-            control_plane_node_names=control_plane_node_names,
-            components=list(components.values()),
-            discovery_warnings=discovery_warnings,
         )
 
     def get_demo_traffic_info(self) -> dict:
@@ -310,44 +161,6 @@ class KubernetesService:
 
         parsed["source"] = "service-proxy"
         return parsed
-
-    @staticmethod
-    def _find_control_plane_pod(pods: list[client.V1Pod], component_key: str) -> client.V1Pod | None:
-        labeled = [
-            pod
-            for pod in pods
-            if pod.metadata
-            and pod.metadata.labels
-            and pod.metadata.labels.get("component") == component_key
-        ]
-        if labeled:
-            return sorted(labeled, key=lambda pod: pod.metadata.name or "")[0]
-
-        named = [
-            pod
-            for pod in pods
-            if pod.metadata and pod.metadata.name and pod.metadata.name.startswith(f"{component_key}-")
-        ]
-        if named:
-            return sorted(named, key=lambda pod: pod.metadata.name or "")[0]
-
-        return None
-
-    @staticmethod
-    def _find_component_lease(leases: list[client.V1Lease], lease_name: str) -> client.V1Lease | None:
-        exact = [lease for lease in leases if lease.metadata and lease.metadata.name == lease_name]
-        if exact:
-            return exact[0]
-
-        prefix = [
-            lease
-            for lease in leases
-            if lease.metadata and lease.metadata.name and lease.metadata.name.startswith(f"{lease_name}-")
-        ]
-        if prefix:
-            return sorted(prefix, key=lambda lease: lease.metadata.name or "")[0]
-
-        return None
 
     def _get_nodes_state(self) -> list[NodeState]:
         assert self.core is not None
