@@ -25,7 +25,9 @@ check_http() {
 }
 
 post_action() {
-  local label="$1" path="$2" body="${3:-{}}"
+  local label="$1" path="$2"
+  local default_body='{}'
+  local body="${3:-$default_body}"
   local status
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
     -H "Content-Type: application/json" \

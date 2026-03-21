@@ -89,7 +89,7 @@ check "backend healthy" check_http_ok "${BACKEND_URL}/healthz"
 check "backend state endpoint works" check_http_ok "${BACKEND_URL}/api/state"
 check "frontend reachable" check_http_ok "${FRONTEND_URL}"
 check "traffic endpoint works" check_traffic_endpoint
-check "control-plane overview renders" check_grep_url "${FRONTEND_URL}" "Control Plane Overview"
+check "control-plane overview renders" check_grep_url "${FRONTEND_URL}/teaching" "Control Plane Overview"
 check "Apply YAML journey present in UI bundle" grep -q "Apply YAML journey" frontend/lib/explainedFlow.ts
 check "Controller reconciliation present in UI bundle" grep -q "Controller reconciliation" frontend/lib/explainedFlow.ts
 

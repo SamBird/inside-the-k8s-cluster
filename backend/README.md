@@ -26,7 +26,6 @@ uvicorn app.main:app --reload --port 8000
 - `POST /api/actions/deploy`
 - `POST /api/actions/scale` with `{ "replicas": 3 }`
 - `POST /api/actions/delete-pod` with `{ "pod_name": "..." }` or `{}`
-- `POST /api/actions/restart-rollout`
 - `POST /api/actions/rollout` with `{ "version": "v2" }`
 - `POST /api/actions/toggle-readiness` with `{ "fail": true|false }`
 - `POST /api/actions/reset`
@@ -35,5 +34,5 @@ uvicorn app.main:app --reload --port 8000
 
 - actions are namespace-scoped to `inside-k8s-demo`
 - scale requests are validated (`1..10`)
-- restart uses Deployment annotation patch (same as `kubectl rollout restart` semantics)
+- reset uses Deployment annotation patch (same as `kubectl rollout restart` semantics)
 - readiness toggle marks one running pod NotReady for teaching traffic flow, without a rollout or ReplicaSet change
