@@ -1169,16 +1169,51 @@ button {
   font-size: 0.9rem;
 }
 
-.traffic-summary {
-  margin: 10px 0;
-  display: flex;
-  gap: 14px;
+.traffic-result-summary {
+  margin: 10px 0 6px;
   font-weight: 600;
+  font-size: 1rem;
 }
 
-.traffic-table-wrap {
-  max-height: 340px;
-  overflow: auto;
+.traffic-pod-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.traffic-pod-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  font-size: 0.88rem;
+  min-width: 140px;
+}
+
+.traffic-pod-pill strong {
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.pod-pill-ready {
+  background: #f0fdf4;
+  border-color: #16a34a;
+  color: #14532d;
+}
+
+.pod-pill-unready {
+  background: #fffbeb;
+  border-color: #d97706;
+  color: #78350f;
+}
+
+.pod-pill-failed {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #7f1d1d;
 }
 
 .graph-legend-panel {

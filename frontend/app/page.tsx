@@ -32,7 +32,6 @@ import {
   TrafficEvent
 } from "../lib/types";
 
-const trafficTargetLabel = "Backend proxy -> /api/traffic/info -> service/demo-app";
 const maxTrafficRows = 500;
 
 const defaultDesired: DesiredState = {
@@ -85,7 +84,6 @@ export default function DashboardPage() {
   const [selectedPod, setSelectedPod] = useState<string>("");
   const [rolloutTag, setRolloutTag] = useState<string>("v2");
   const [trafficCount, setTrafficCount] = useState<number>(12);
-  const [trafficDelayMs, setTrafficDelayMs] = useState<number>(120);
   const [trafficRunning, setTrafficRunning] = useState<boolean>(false);
   const [trafficEvents, setTrafficEvents] = useState<TrafficEvent[]>([]);
 
@@ -235,7 +233,7 @@ export default function DashboardPage() {
       setTrafficEvents((existing) => [...additions.slice(0, 1), ...existing].slice(0, maxTrafficRows));
 
       if (index < trafficCount - 1) {
-        await delay(Math.max(0, trafficDelayMs));
+        await delay(150);
       }
     }
 
@@ -340,14 +338,12 @@ export default function DashboardPage() {
 
         <div className="layout-span-2 reveal-6">
           <TrafficPanel
-            trafficTarget={trafficTargetLabel}
             requestCount={trafficCount}
-            delayMs={trafficDelayMs}
             running={trafficRunning}
             events={trafficEvents}
             onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
-            onDelayChange={(value) => setTrafficDelayMs(Number.isFinite(value) ? Math.min(3000, Math.max(0, value)) : 120)}
             onGenerate={onGenerateTraffic}
+            onClear={() => setTrafficEvents([])}
           />
         </div>
 
