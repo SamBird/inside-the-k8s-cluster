@@ -29,6 +29,16 @@ stop_managed_tunnel() {
     kill "$(cat "$TUNNEL_PID_FILE")" >/dev/null 2>&1 || true
   fi
   rm -f "$TUNNEL_PID_FILE"
+
+  # Kill any stale SSH tunnel still holding the port (catches strays not in PID file).
+  if [[ -n "${TUNNEL_PORT:-}" ]]; then
+    local stale_pid
+    stale_pid="$(lsof -tiTCP:"${TUNNEL_PORT}" -sTCP:LISTEN -c ssh 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$stale_pid" ]]; then
+      echo "Killing stale SSH tunnel on port ${TUNNEL_PORT} (pid ${stale_pid})"
+      kill "$stale_pid" >/dev/null 2>&1 || true
+    fi
+  fi
 }
 
 usage() {
@@ -50,6 +60,14 @@ require_cmd docker
 if ! docker info >/dev/null 2>&1; then
   echo "ERROR: docker daemon is not reachable. Start Docker/Colima and retry." >&2
   exit 1
+fi
+
+# Capture API port before deletion so stop_managed_tunnel can kill strays by port.
+TUNNEL_PORT=""
+KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+server_url="$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name==\"${KUBE_CONTEXT}\")].cluster.server}" 2>/dev/null || true)"
+if [[ "$server_url" =~ :([0-9]+)$ ]]; then
+  TUNNEL_PORT="${BASH_REMATCH[1]}"
 fi
 
 if kind get clusters | grep -Fxq "$CLUSTER_NAME"; then

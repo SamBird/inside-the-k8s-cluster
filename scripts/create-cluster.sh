@@ -55,6 +55,17 @@ stop_managed_tunnel() {
     kill "$(cat "$TUNNEL_PID_FILE")" >/dev/null 2>&1 || true
   fi
   rm -f "$TUNNEL_PID_FILE"
+
+  # Kill any stale SSH tunnel still holding the port (catches strays not in PID file).
+  if [[ -n "${CLUSTER_SERVER_PORT:-}" ]]; then
+    local stale_pid
+    stale_pid="$(lsof -tiTCP:"${CLUSTER_SERVER_PORT}" -sTCP:LISTEN -c ssh 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$stale_pid" ]]; then
+      echo "Killing stale SSH tunnel on port ${CLUSTER_SERVER_PORT} (pid ${stale_pid})"
+      kill "$stale_pid" >/dev/null 2>&1 || true
+      sleep 1
+    fi
+  fi
 }
 
 ensure_cluster_api_access() {
@@ -87,10 +98,40 @@ ensure_cluster_api_access() {
     -f -N \
     -L "${CLUSTER_SERVER_HOST}:${CLUSTER_SERVER_PORT}:${CLUSTER_SERVER_HOST}:${CLUSTER_SERVER_PORT}"
 
-  local tunnel_pid
-  tunnel_pid="$(lsof -tiTCP:"${CLUSTER_SERVER_PORT}" -sTCP:LISTEN -c ssh 2>/dev/null | head -n 1 || true)"
+  # Retry PID capture — SSH needs a moment after fork to bind the port.
+  local tunnel_pid=""
+  local pid_attempts=0
+  while [[ -z "$tunnel_pid" && "$pid_attempts" -lt 10 ]]; do
+    tunnel_pid="$(lsof -tiTCP:"${CLUSTER_SERVER_PORT}" -sTCP:LISTEN -c ssh 2>/dev/null | head -n 1 || true)"
+    if [[ -z "$tunnel_pid" ]]; then
+      sleep 0.2
+      ((pid_attempts++))
+    fi
+  done
+
   if [[ -n "$tunnel_pid" ]]; then
     echo "$tunnel_pid" >"$TUNNEL_PID_FILE"
+  else
+    echo "WARNING: Could not capture tunnel PID. Tunnel may have failed to start." >&2
+  fi
+
+  # Verify traffic actually flows through the tunnel.
+  local verify_attempts=0
+  while [[ "$verify_attempts" -lt 5 ]]; do
+    if server_readyz_reachable "$CLUSTER_SERVER_URL"; then
+      echo "Colima tunnel verified: API server reachable"
+      return 0
+    fi
+    sleep 1
+    ((verify_attempts++))
+  done
+
+  echo "WARNING: Colima tunnel opened but API server not yet reachable through it." >&2
+  echo "  Target: ${CLUSTER_SERVER_URL}" >&2
+  if [[ -n "${tunnel_pid:-}" ]] && kill -0 "$tunnel_pid" 2>/dev/null; then
+    echo "  Tunnel process (pid ${tunnel_pid}) is running but traffic is not flowing." >&2
+  else
+    echo "  Tunnel process is not running — SSH may have exited on port conflict." >&2
   fi
 }
 
