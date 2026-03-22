@@ -8,7 +8,7 @@ VERSION ?= v1
 NEW_VERSION ?= v2
 PRELOAD_ROLLOUT_VERSIONS ?= v2
 
-.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop golden-reset rehearsal-check smoke-test backend-install backend-run frontend-install frontend-run
+.PHONY: help preflight cluster-up cluster-down cluster-reset metrics-server install-metrics verify-structure demo-image demo-load demo-deploy demo-wait demo-rollout demo-status demo-up demo-all demo-all-down demo-stop golden-reset rehearsal-check smoke-test backend-install backend-run backend-test frontend-install frontend-run frontend-test check
 
 help:
 	@echo "Targets:"
@@ -38,6 +38,9 @@ help:
 	@echo "  make backend-run             Run backend API on :8000"
 	@echo "  make frontend-install        Install frontend dependencies"
 	@echo "  make frontend-run            Run Next.js dashboard on :3000"
+	@echo "  make backend-test            Run backend pytest suite"
+	@echo "  make frontend-test           Run frontend vitest suite"
+	@echo "  make check                   Run static analysis and all tests"
 
 preflight:
 	@CLUSTER_NAME=$(CLUSTER_NAME) KUBE_CONTEXT=$(KUBE_CONTEXT) ./scripts/preflight-check.sh
@@ -114,3 +117,20 @@ frontend-install:
 
 frontend-run:
 	@cd frontend && npm run dev
+
+backend-test:
+	@cd backend && .venv/bin/python -m pytest tests/ -v
+
+frontend-test:
+	@cd frontend && npx vitest run
+
+check:
+	@echo "=== Frontend typecheck ==="
+	@cd frontend && npm run typecheck
+	@echo "=== Frontend lint ==="
+	@cd frontend && npm run lint
+	@echo "=== Backend tests ==="
+	@cd backend && .venv/bin/python -m pytest tests/ -v
+	@echo "=== Frontend tests ==="
+	@cd frontend && npx vitest run
+	@echo "=== All checks passed ==="
