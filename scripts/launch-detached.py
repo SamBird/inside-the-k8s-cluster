@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Launch a command as a detached background process with PID tracking.
+
+Used by demo-all.sh to start backend and frontend services in the background.
+Writes the child PID to --pid-file and redirects output to --log-file.
+After a brief startup delay, checks whether the child exited immediately
+and reports failure if so.
+
+Usage:
+    python3 launch-detached.py --workdir DIR --pid-file FILE --log-file FILE -- COMMAND...
+"""
 from __future__ import annotations
 
 import argparse

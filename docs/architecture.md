@@ -91,6 +91,19 @@ Readiness behavior for the live demo is changed through direct admin calls on cu
 - Rollout action validates version tag format.
 - Reset action returns app to known baseline (`v1`, replicas `1`, readiness healthy).
 
+## Orchestration
+
+`make demo-all` is the one-command entry point for the full demo stack. It delegates to `scripts/demo-all.sh`, which:
+
+1. Ensures a container runtime is available (auto-starts Colima if needed)
+2. Creates or verifies the kind cluster (`scripts/create-cluster.sh`)
+3. Builds and loads the demo-app image
+4. Applies Kubernetes manifests
+5. Starts backend and frontend as background processes via `scripts/launch-detached.py`
+6. Runs health checks to confirm the stack is live
+
+`scripts/launch-detached.py` launches a command in a new session, writes its PID to a file for later cleanup, and redirects output to a log file. This allows `demo-stop` and `demo-all-down` to reliably stop services by PID.
+
 ## Local-First Assumptions
 
 - Docker daemon is local.

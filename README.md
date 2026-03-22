@@ -33,122 +33,39 @@ In the UI:
 - discovered node/cluster context is live metadata from Kubernetes API snapshots.
 - no per-process telemetry is claimed for control-plane binaries.
 
-## Local Setup
+## Quick Start
 
-Prerequisites:
+Prerequisites: Docker, `kubectl`, `kind`, `make`, Node.js 20+, Python 3.11+.
+Full details in [docs/prerequisites.md](docs/prerequisites.md).
 
-- Docker
-- `kubectl`
-- `kind`
-- `make`
-- Node.js + npm (for frontend)
-- Python 3.11+ (for backend)
-
-Create cluster and install metrics-server:
-
-```bash
-make preflight
-make cluster-up
-```
-
-Or run full live-demo orchestration in one command:
+One-command setup (creates cluster, builds image, deploys app, starts backend + frontend):
 
 ```bash
 make demo-all VERSION=v1
 ```
 
-`demo-all` also preloads rollout image tags for the talk (default: `v2`).
-Override or disable with:
+Or step by step:
 
 ```bash
-make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=v2,v3
-make demo-all VERSION=v1 PRELOAD_ROLLOUT_VERSIONS=
+make preflight        # verify local toolchain
+make cluster-up       # create kind cluster + metrics-server
+make demo-up VERSION=v1  # build, load, deploy demo app
+make backend-install && make backend-run    # terminal 1
+make frontend-install && make frontend-run  # terminal 2
 ```
 
-For presentation baseline reset:
+For the full step-by-step guide, environment variable reference, and teardown options, see [docs/setup.md](docs/setup.md).
+
+## Verify Setup
+
+After setup, confirm everything works:
 
 ```bash
-make golden-reset
+make rehearsal-check   # automated pre-talk readiness checks
+make smoke-test        # end-to-end API smoke test
 ```
 
-For rehearsal readiness checks:
-
-```bash
-make rehearsal-check
-```
-
-`demo-all` will try to start Colima automatically if Docker is installed but the daemon is not reachable.
-Disable that behavior with:
-
-```bash
-AUTO_START_COLIMA=0 make demo-all VERSION=v1
-```
-
-To stop local backend/frontend processes started by `demo-all`:
-
-```bash
-make demo-stop
-```
-
-To shut down the full local demo stack (services + kind cluster):
-
-```bash
-make demo-all-down
-```
-
-Optionally stop Colima too:
-
-```bash
-STOP_COLIMA=1 make demo-all-down
-```
-
-If you use a non-default cluster name:
-
-```bash
-make CLUSTER_NAME=my-demo KUBE_CONTEXT=kind-my-demo cluster-up
-```
-
-## Build and Deploy Commands
-
-Build and load demo app image:
-
-```bash
-make demo-image VERSION=v1
-make demo-load VERSION=v1
-```
-
-Or use one command:
-
-```bash
-make demo-up VERSION=v1
-```
-
-Deploy app manifests:
-
-```bash
-make demo-deploy
-make demo-status
-```
-
-Run backend:
-
-```bash
-make backend-install
-make backend-run
-```
-
-Run frontend (new terminal):
-
-```bash
-make frontend-install
-make frontend-run
-```
-
-Optional: expose in-cluster service for direct manual checks:
-
-```bash
-kubectl --context kind-inside-k8s -n inside-k8s-demo port-forward svc/demo-app 8080:80
-```
+See [docs/rehearsal-checklist.md](docs/rehearsal-checklist.md) for the full manual checklist.
 
 ## Demo Walkthrough
 
@@ -164,7 +81,7 @@ Revised talk flow:
 8. Optional traffic/load-balancing demonstration.
 9. Reset.
 
-Full operator script is in [docs/demo-script.md](docs/demo-script.md).
+Full operator script is in [docs/presentation-guide.md](docs/presentation-guide.md).
 
 ## Reset Steps
 
@@ -180,20 +97,9 @@ If environment needs a full reset:
 make cluster-reset
 ```
 
-## Known Limitations
+## Known Limitations and Future Enhancements
 
-- No auth/RBAC abstraction in the app; this is intentionally a local teaching tool.
-- Rollout to a new version expects the image tag to exist locally and be loadable into kind.
-- Traffic panel depends on backend `GET /api/traffic/info`; it returns a clear warning until demo-app has ready endpoints.
-- SSE timeline currently follows pod-level events and state snapshots, not full Kubernetes event history.
-- Local clusters do not expose rich per-component control-plane telemetry here; control-plane internals are taught conceptually and paired with discovered cluster metadata.
-
-## Future Enhancements
-
-- Add a dedicated Kubernetes events stream panel (`kubectl get events` style semantics).
-- Add saved demo “scenes” for one-click transitions between teaching moments.
-- Add lightweight backend integration tests with mocked Kubernetes API responses.
-- Add exportable timeline snapshots for post-talk review.
+See [docs/troubleshooting.md](docs/troubleshooting.md) for the full list of known limitations, future enhancements, and common issue fixes.
 
 ## Git Workflow
 
@@ -208,9 +114,8 @@ For repository contributors and Codex-assisted changes:
 
 ## Talk Assets
 
+- Setup guide: [docs/setup.md](docs/setup.md)
 - Architecture: [docs/architecture.md](docs/architecture.md)
-- Presentation runbook: [docs/presentation-runbook.md](docs/presentation-runbook.md)
+- Presentation guide: [docs/presentation-guide.md](docs/presentation-guide.md)
 - Rehearsal checklist: [docs/rehearsal-checklist.md](docs/rehearsal-checklist.md)
-- Demo script: [docs/demo-script.md](docs/demo-script.md)
-- Speaker notes: [docs/speaker-notes.md](docs/speaker-notes.md)
 - Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)

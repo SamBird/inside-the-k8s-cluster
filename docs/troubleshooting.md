@@ -189,10 +189,13 @@ make demo-deploy
 - SSE stream is state-oriented and does not persist historical event logs.
 - Control-plane component cards and explained flow are educational models, not low-level process telemetry.
 - Control-plane node discovery depends on labels visible in the current cluster and context.
+- Rollout to a new version expects the image tag to exist locally and be loadable into kind.
+- Traffic panel depends on backend `GET /api/traffic/info`; it returns a clear warning until demo-app has ready endpoints.
+- Local clusters do not expose rich per-component control-plane telemetry; control-plane internals are taught conceptually and paired with discovered cluster metadata.
 
 ## Future Enhancements
 
-- Add one-command preflight script for all prerequisites and checks.
-- Add automated smoke tests for the full demo sequence.
 - Add rollback button with explicit previous-version selection.
 - Add richer pod lifecycle event decoding (Scheduled, Pulled, Started, etc.).
+- Add saved demo "scenes" for one-click transitions between teaching moments.
+- Add exportable timeline snapshots for post-talk review.

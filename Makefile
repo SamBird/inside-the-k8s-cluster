@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
 CLUSTER_NAME ?= inside-k8s
 KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)

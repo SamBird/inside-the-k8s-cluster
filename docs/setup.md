@@ -89,7 +89,7 @@ kubectl --context kind-inside-k8s top nodes
 
 If `kubectl top nodes` fails initially, wait briefly and retry while metrics-server finishes startup.
 
-## 6b. Rehearsal readiness
+## 7. Rehearsal readiness
 
 Return to known-good baseline:
 
@@ -103,13 +103,27 @@ Run automated rehearsal checks:
 make rehearsal-check
 ```
 
+Run end-to-end API smoke test:
+
+```bash
+make smoke-test
+```
+
 If backend/frontend are not already running, start full stack first:
 
 ```bash
 make demo-all VERSION=v1
 ```
 
-## 7. Tear down
+## 8. Tear down
+
+Choose the teardown level that fits your situation:
+
+| Command | Backend/Frontend | Kind Cluster | When to use |
+|---------|-----------------|--------------|-------------|
+| `make demo-stop` | Stops | Keeps running | Pause between rehearsals |
+| `make demo-all-down` | Stops | Deletes | Done for the day |
+| `make cluster-reset` | No change | Recreates | Cluster is broken |
 
 ```bash
 make demo-all-down
@@ -126,3 +140,24 @@ If you want to stop Colima as well:
 ```bash
 STOP_COLIMA=1 make demo-all-down
 ```
+
+## Environment Variables
+
+All variables have sensible defaults. Override them when needed:
+
+| Variable | Default | Used by | Description |
+|----------|---------|---------|-------------|
+| `CLUSTER_NAME` | `inside-k8s` | Most targets | Kind cluster name |
+| `KUBE_CONTEXT` | `kind-inside-k8s` | Most targets | kubectl context for the cluster |
+| `NAMESPACE` | `inside-k8s-demo` | Deploy/status targets | Kubernetes namespace for demo workloads |
+| `VERSION` | `v1` | `demo-image`, `demo-load`, `demo-all` | Demo app image tag to build and deploy |
+| `NEW_VERSION` | `v2` | `demo-rollout` | Target version for rollout |
+| `PRELOAD_ROLLOUT_VERSIONS` | `v2` | `demo-all` | Comma-separated image tags to pre-build and load for rollout demos |
+| `BACKEND_URL` | `http://127.0.0.1:8000` | `demo-all`, `smoke-test` | Backend API base URL |
+| `FRONTEND_URL` | `http://127.0.0.1:3000` | `demo-all` | Frontend dev server URL |
+| `DEMO_HEALTH_PORT` | `18080` | `demo-all` | Port for in-cluster health checks during orchestration |
+| `AUTO_START_COLIMA` | `1` | `demo-all` | Set to `0` to disable automatic Colima startup |
+| `STOP_COLIMA` | _(unset)_ | `demo-all-down` | Set to `1` to stop Colima during teardown |
+| `COLIMA_PROFILE` | _(default)_ | `demo-all-down` | Colima profile name if using non-default |
+| `KIND_CONFIG` | `k8s/kind-config.yaml` | `cluster-up` | Path to kind cluster config |
+| `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:8000` | Frontend | Backend URL used by Next.js (set in `frontend/.env.local`) |
