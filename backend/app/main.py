@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException
+import logging
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from kubernetes.client import ApiException
 
 from .k8s_service import BackendError, KubernetesService
@@ -14,6 +16,8 @@ from .models import (
     TrafficInfoResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="inside-the-k8s backend", version="0.1.0")
 service = KubernetesService()
 
@@ -25,6 +29,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _is_connection_error(exc: Exception) -> bool:
+    """Check if an exception indicates a lost connection to the K8s API server."""
+    err_type = type(exc).__name__
+    return any(keyword in err_type for keyword in ("Connection", "MaxRetry", "Timeout", "URLError"))
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Return the actual error message for unhandled exceptions.
+
+    Helps debugging during live demos. Also resets K8s clients on connection
+    errors so the next request reloads kubeconfig (handles Kind cluster recreation).
+    """
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    if _is_connection_error(exc):
+        service._reset_clients()
+    status = 503 if _is_connection_error(exc) else 500
+    return JSONResponse(
+        status_code=status,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
 
 
 @app.get("/healthz")

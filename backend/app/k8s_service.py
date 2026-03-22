@@ -56,6 +56,16 @@ class KubernetesService:
                 f"in-cluster error: {incluster_error})"
             ) from incluster_error
 
+    def _require_core(self) -> client.CoreV1Api:
+        if self.core is None:
+            raise BackendError("Kubernetes client not initialized")
+        return self.core
+
+    def _require_apps(self) -> client.AppsV1Api:
+        if self.apps is None:
+            raise BackendError("Kubernetes client not initialized")
+        return self.apps
+
     def _reset_clients(self) -> None:
         if self.api_client is not None:
             try:
@@ -67,18 +77,13 @@ class KubernetesService:
         self.apps = None
 
     def _ensure_clients(self) -> None:
-        desired_host = self._load_kube_config()
-        current_host = self.api_client.configuration.host if self.api_client is not None else None
-
-        # Kind recreates often change the API port in kubeconfig. Refresh clients when that happens
-        # so long-lived backend processes do not keep talking to a dead control-plane endpoint.
-        if (
-            self.core is not None
-            and self.apps is not None
-            and current_host == desired_host
-        ):
+        # Fast path: clients already exist, skip kubeconfig file I/O.
+        if self.core is not None and self.apps is not None:
             return
 
+        # Slow path: first call or after _reset_clients(). Reload kubeconfig
+        # to pick up Kind cluster recreations that change the API server port.
+        self._load_kube_config()
         self._reset_clients()
         self.api_client = client.ApiClient()
         self.core = client.CoreV1Api(self.api_client)
@@ -113,9 +118,9 @@ class KubernetesService:
 
     def get_demo_traffic_info(self) -> dict:
         self._ensure_clients()
-        assert self.core is not None
+        core = self._require_core()
         try:
-            service = self.core.read_namespaced_service(self.cfg.service_name, self.cfg.namespace)
+            service = core.read_namespaced_service(self.cfg.service_name, self.cfg.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 raise BackendError(f"Service '{self.cfg.service_name}' not found in namespace '{self.cfg.namespace}'")
@@ -127,7 +132,7 @@ class KubernetesService:
         proxy_name = f"{self.cfg.service_name}:{ports[0].port}"
 
         try:
-            raw = self.core.connect_get_namespaced_service_proxy_with_path(
+            raw = core.connect_get_namespaced_service_proxy_with_path(
                 name=proxy_name,
                 namespace=self.cfg.namespace,
                 path="info",
@@ -163,8 +168,8 @@ class KubernetesService:
         return parsed
 
     def _get_nodes_state(self) -> list[NodeState]:
-        assert self.core is not None
-        nodes = self.core.list_node()
+        core = self._require_core()
+        nodes = core.list_node()
         result: list[NodeState] = []
         for node in sorted(nodes.items, key=lambda n: n.metadata.name):
             labels = node.metadata.labels or {}
@@ -212,9 +217,9 @@ class KubernetesService:
         return result
 
     def _get_deployment_state(self) -> DeploymentState:
-        assert self.apps is not None
+        apps = self._require_apps()
         try:
-            dep = self.apps.read_namespaced_deployment(self.cfg.deployment_name, self.cfg.namespace)
+            dep = apps.read_namespaced_deployment(self.cfg.deployment_name, self.cfg.namespace)
             status = dep.status
             return DeploymentState(
                 name=dep.metadata.name,
@@ -230,9 +235,9 @@ class KubernetesService:
             raise
 
     def _get_service_state(self) -> ServiceState:
-        assert self.core is not None
+        core = self._require_core()
         try:
-            svc = self.core.read_namespaced_service(self.cfg.service_name, self.cfg.namespace)
+            svc = core.read_namespaced_service(self.cfg.service_name, self.cfg.namespace)
             ports = [
                 ServicePortState(
                     name=p.name,
@@ -265,9 +270,9 @@ class KubernetesService:
         return None
 
     def _get_replica_sets_state(self) -> list[ReplicaSetState]:
-        assert self.apps is not None
+        apps = self._require_apps()
         try:
-            replica_sets = self.apps.list_namespaced_replica_set(
+            replica_sets = apps.list_namespaced_replica_set(
                 namespace=self.cfg.namespace,
                 label_selector=self.cfg.app_label,
             )
@@ -306,9 +311,9 @@ class KubernetesService:
         return result
 
     def _get_service_endpoints_state(self) -> list[ServiceEndpointState]:
-        assert self.core is not None
+        core = self._require_core()
         try:
-            endpoints = self.core.read_namespaced_endpoints(self.cfg.service_name, self.cfg.namespace)
+            endpoints = core.read_namespaced_endpoints(self.cfg.service_name, self.cfg.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 return []
@@ -343,9 +348,9 @@ class KubernetesService:
         )
 
     def _get_pods_state(self) -> list[PodState]:
-        assert self.core is not None
+        core = self._require_core()
         try:
-            pods = self.core.list_namespaced_pod(
+            pods = core.list_namespaced_pod(
                 namespace=self.cfg.namespace,
                 label_selector=self.cfg.app_label,
             )
@@ -381,9 +386,9 @@ class KubernetesService:
         return result
 
     def _get_config_state(self) -> DemoConfigState | None:
-        assert self.core is not None
+        core = self._require_core()
         try:
-            cm = self.core.read_namespaced_config_map(self.cfg.configmap_name, self.cfg.namespace)
+            cm = core.read_namespaced_config_map(self.cfg.configmap_name, self.cfg.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 return None
@@ -416,9 +421,9 @@ class KubernetesService:
     def scale_deployment(self, replicas: int) -> ActionResponse:
         self._ensure_clients()
         self._ensure_deployment_exists()
-        assert self.apps is not None
+        apps = self._require_apps()
         body = {"spec": {"replicas": replicas}}
-        self.apps.patch_namespaced_deployment_scale(
+        apps.patch_namespaced_deployment_scale(
             name=self.cfg.deployment_name,
             namespace=self.cfg.namespace,
             body=body,
@@ -431,8 +436,8 @@ class KubernetesService:
 
     def delete_pod(self, pod_name: str | None = None) -> ActionResponse:
         self._ensure_clients()
-        assert self.core is not None
-        pods = self.core.list_namespaced_pod(
+        core = self._require_core()
+        pods = core.list_namespaced_pod(
             namespace=self.cfg.namespace,
             label_selector=self.cfg.app_label,
         ).items
@@ -450,7 +455,7 @@ class KubernetesService:
             if target not in demo_pod_names:
                 raise BackendError(f"Pod '{target}' is not a current demo-app pod")
 
-        self.core.delete_namespaced_pod(
+        core.delete_namespaced_pod(
             name=target,
             namespace=self.cfg.namespace,
             grace_period_seconds=0,
@@ -469,8 +474,8 @@ class KubernetesService:
         return all(container_status.ready for container_status in statuses)
 
     def _get_running_demo_pods(self) -> list[client.V1Pod]:
-        assert self.core is not None
-        pods = self.core.list_namespaced_pod(
+        core = self._require_core()
+        pods = core.list_namespaced_pod(
             namespace=self.cfg.namespace,
             label_selector=self.cfg.app_label,
         ).items
@@ -480,10 +485,10 @@ class KubernetesService:
         )
 
     def _proxy_pod_readiness_change(self, pod_name: str, fail: bool) -> None:
-        assert self.core is not None
+        core = self._require_core()
         path = "admin/readiness/fail" if fail else "admin/readiness/restore"
         try:
-            self.core.connect_post_namespaced_pod_proxy_with_path(
+            core.connect_post_namespaced_pod_proxy_with_path(
                 name=pod_name,
                 namespace=self.cfg.namespace,
                 path=path,
@@ -496,22 +501,46 @@ class KubernetesService:
             ) from exc
 
 
+    def _image_available_on_nodes(self, image_name: str) -> bool:
+        """Check whether at least one cluster node has the given container image."""
+        core = self._require_core()
+        try:
+            nodes = core.list_node()
+        except ApiException:
+            # If we can't list nodes, skip the check rather than blocking the rollout.
+            return True
+
+        for node in nodes.items:
+            for img in (node.status.images or []):
+                for name in (img.names or []):
+                    # Kind loads images as "docker.io/library/demo-app:v2" or "demo-app:v2".
+                    if name == image_name or name.endswith(f"/{image_name}"):
+                        return True
+        return False
+
     def rollout_version(self, version: str) -> ActionResponse:
         self._ensure_clients()
         self._ensure_deployment_exists()
         self._ensure_configmap_exists()
-        assert self.apps is not None
-        assert self.core is not None
+        core = self._require_core()
+        apps = self._require_apps()
 
         if not version or ":" in version or "/" in version:
             raise BackendError("Version must be a simple tag like 'v2'")
 
-        self.core.patch_namespaced_config_map(
+        target_image = f"demo-app:{version}"
+        if not self._image_available_on_nodes(target_image):
+            raise BackendError(
+                f"Image '{target_image}' not found on any cluster node. "
+                f"Load it first: make demo-image VERSION={version} && make demo-load VERSION={version}"
+            )
+
+        core.patch_namespaced_config_map(
             name=self.cfg.configmap_name,
             namespace=self.cfg.namespace,
             body={"data": {"APP_VERSION": version}},
         )
-        self.apps.patch_namespaced_deployment(
+        apps.patch_namespaced_deployment(
             name=self.cfg.deployment_name,
             namespace=self.cfg.namespace,
             body={
@@ -572,10 +601,14 @@ class KubernetesService:
 
     def reset_demo(self) -> ActionResponse:
         self._ensure_clients()
-        self.deploy_app()
-        assert self.core is not None
-        assert self.apps is not None
-        self.core.patch_namespaced_config_map(
+        core = self._require_core()
+        apps = self._require_apps()
+        # Apply base resources without the extra get_state() that deploy_app() does.
+        self._ensure_namespace()
+        self._apply_configmap()
+        self._apply_deployment()
+        self._apply_service()
+        core.patch_namespaced_config_map(
             name=self.cfg.configmap_name,
             namespace=self.cfg.namespace,
             body={
@@ -585,7 +618,7 @@ class KubernetesService:
                 }
             },
         )
-        self.apps.patch_namespaced_deployment(
+        apps.patch_namespaced_deployment(
             name=self.cfg.deployment_name,
             namespace=self.cfg.namespace,
             body={
@@ -603,13 +636,13 @@ class KubernetesService:
                 }
             },
         )
-        self.apps.patch_namespaced_deployment_scale(
+        apps.patch_namespaced_deployment_scale(
             name=self.cfg.deployment_name,
             namespace=self.cfg.namespace,
             body={"spec": {"replicas": 1}},
         )
         ts = datetime.now(timezone.utc).isoformat()
-        self.apps.patch_namespaced_deployment(
+        apps.patch_namespaced_deployment(
             name=self.cfg.deployment_name,
             namespace=self.cfg.namespace,
             body={
@@ -649,11 +682,11 @@ class KubernetesService:
     def sse_k8s_events_stream(self) -> Generator[str, None, None]:
         """Stream real Kubernetes events from the demo namespace via SSE."""
         self._ensure_clients()
-        assert self.core is not None
+        core = self._require_core()
 
         # Send snapshot of recent events on connect.
         try:
-            event_list = self.core.list_namespaced_event(namespace=self.cfg.namespace)
+            event_list = core.list_namespaced_event(namespace=self.cfg.namespace)
         except ApiException as exc:
             yield self._format_sse("error", {"message": f"k8s_events_list_error status={exc.status}"})
             return
@@ -677,7 +710,7 @@ class KubernetesService:
             watcher = watch.Watch()
             try:
                 stream = watcher.stream(
-                    self.core.list_namespaced_event,
+                    core.list_namespaced_event,
                     namespace=self.cfg.namespace,
                     timeout_seconds=self.cfg.sse_watch_timeout_seconds,
                 )
@@ -694,6 +727,9 @@ class KubernetesService:
                         continue
                     if uid:
                         seen_uids[uid] = count
+                        # Cap memory: prune when dict grows too large.
+                        if len(seen_uids) > 500:
+                            seen_uids = dict(list(seen_uids.items())[-250:])
 
                     now = time.time()
                     if now - last_emit < min_interval:
@@ -712,7 +748,7 @@ class KubernetesService:
 
     def sse_state_stream(self) -> Generator[str, None, None]:
         self._ensure_clients()
-        assert self.core is not None
+        core = self._require_core()
         yield self._format_sse("state", {"state": jsonable_encoder(self.get_state())})
 
         last_emit = time.time()
@@ -722,7 +758,7 @@ class KubernetesService:
             watcher = watch.Watch()
             try:
                 stream = watcher.stream(
-                    self.core.list_namespaced_pod,
+                    core.list_namespaced_pod,
                     namespace=self.cfg.namespace,
                     label_selector=self.cfg.app_label,
                     timeout_seconds=self.cfg.sse_watch_timeout_seconds,
@@ -752,69 +788,69 @@ class KubernetesService:
             last_emit = time.time()
 
     def _ensure_namespace(self) -> None:
-        assert self.core is not None
+        core = self._require_core()
         body = self._manifest("namespace.yaml")
         name = body["metadata"]["name"]
         try:
-            self.core.read_namespace(name)
+            core.read_namespace(name)
         except ApiException as exc:
             if exc.status == 404:
-                self.core.create_namespace(body)
+                core.create_namespace(body)
             else:
                 raise
 
     def _apply_configmap(self) -> None:
-        assert self.core is not None
+        core = self._require_core()
         body = self._manifest("configmap.yaml")
         name = body["metadata"]["name"]
         try:
-            self.core.read_namespaced_config_map(name, self.cfg.namespace)
-            self.core.patch_namespaced_config_map(name, self.cfg.namespace, body)
+            core.read_namespaced_config_map(name, self.cfg.namespace)
+            core.patch_namespaced_config_map(name, self.cfg.namespace, body)
         except ApiException as exc:
             if exc.status == 404:
-                self.core.create_namespaced_config_map(self.cfg.namespace, body)
+                core.create_namespaced_config_map(self.cfg.namespace, body)
             else:
                 raise
 
     def _apply_deployment(self) -> None:
-        assert self.apps is not None
+        apps = self._require_apps()
         body = self._manifest("deployment.yaml")
         name = body["metadata"]["name"]
         try:
-            self.apps.read_namespaced_deployment(name, self.cfg.namespace)
-            self.apps.patch_namespaced_deployment(name, self.cfg.namespace, body)
+            apps.read_namespaced_deployment(name, self.cfg.namespace)
+            apps.patch_namespaced_deployment(name, self.cfg.namespace, body)
         except ApiException as exc:
             if exc.status == 404:
-                self.apps.create_namespaced_deployment(self.cfg.namespace, body)
+                apps.create_namespaced_deployment(self.cfg.namespace, body)
             else:
                 raise
 
     def _apply_service(self) -> None:
-        assert self.core is not None
+        core = self._require_core()
         body = self._manifest("service.yaml")
         name = body["metadata"]["name"]
         try:
-            self.core.read_namespaced_service(name, self.cfg.namespace)
-            self.core.patch_namespaced_service(name, self.cfg.namespace, body)
+            core.read_namespaced_service(name, self.cfg.namespace)
+            core.patch_namespaced_service(name, self.cfg.namespace, body)
         except ApiException as exc:
             if exc.status == 404:
-                self.core.create_namespaced_service(self.cfg.namespace, body)
+                core.create_namespaced_service(self.cfg.namespace, body)
             else:
                 raise
 
     def _ensure_deployment_exists(self) -> None:
-        assert self.apps is not None
+        apps = self._require_apps()
         try:
-            self.apps.read_namespaced_deployment(self.cfg.deployment_name, self.cfg.namespace)
+            apps.read_namespaced_deployment(self.cfg.deployment_name, self.cfg.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 raise BackendError("Deployment not found. Run deploy action first.") from exc
             raise
 
     def _ensure_configmap_exists(self) -> None:
-        assert self.core is not None
+        core = self._require_core()
         try:
-            self.core.read_namespaced_config_map(self.cfg.configmap_name, self.cfg.namespace)
+            core.read_namespaced_config_map(self.cfg.configmap_name, self.cfg.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 raise BackendError("ConfigMap not found. Run deploy action first.") from exc
