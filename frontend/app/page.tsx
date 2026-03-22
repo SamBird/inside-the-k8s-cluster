@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const [k8sEvents, setK8sEvents] = useState<KubernetesEvent[]>([]);
 
   const previousStateRef = useRef<ClusterState | null>(null);
+  const trafficCancelledRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +144,9 @@ export default function DashboardPage() {
       onEvent: (event) => {
         setK8sEvents((existing) => [event, ...existing].slice(0, 30));
       },
-      onError: () => {},
+      onError: (message) => {
+        setTimeline((existing) => prependTimeline(existing, [newTimeline("warn", "K8s events", message)]));
+      },
       onOpen: () => {}
     });
 
@@ -192,6 +195,12 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
   ): Promise<void> => {
     const actionStartedAtMs = Date.now();
     setBusyAction(actionLabel);
+    // Broadcast action to teaching page via localStorage for auto-sync.
+    try {
+      localStorage.setItem("last-demo-action", JSON.stringify({ action: actionLabel, at: Date.now() }));
+    } catch {
+      // localStorage may be unavailable; ignore silently.
+    }
     // Safety net: if the request hangs past 20s, unlock buttons automatically.
     const safetyTimeout = setTimeout(() => setBusyAction(null), 20000);
     try {
@@ -221,10 +230,13 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
     if (trafficRunning) {
       return;
     }
+    trafficCancelledRef.current = false;
     setTrafficRunning(true);
     const additions: TrafficEvent[] = [];
 
     for (let index = 0; index < trafficCount; index += 1) {
+      if (trafficCancelledRef.current) break;
+
       try {
         const body = (await getTrafficInfo()) as DemoTrafficResponse;
         additions.unshift({
@@ -242,6 +254,8 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
         });
       }
 
+      if (trafficCancelledRef.current) break;
+
       setTrafficEvents((existing) => [...additions.slice(0, 1), ...existing].slice(0, maxTrafficRows));
 
       if (index < trafficCount - 1) {
@@ -249,20 +263,26 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
       }
     }
 
+    const completed = additions.length;
     const failed = additions.filter((entry) => !entry.ok).length;
+    const wasCancelled = trafficCancelledRef.current;
     setTimeline((existing) =>
       prependTimeline(
         existing,
         [
           newTimeline(
             failed === 0 ? "success" : "warn",
-            "Traffic generation complete",
-            `${trafficCount - failed}/${trafficCount} successful responses`
+            wasCancelled ? "Traffic generation stopped" : "Traffic generation complete",
+            `${completed - failed}/${completed} successful responses`
           )
         ]
       )
     );
     setTrafficRunning(false);
+  };
+
+  const onStopTraffic = () => {
+    trafficCancelledRef.current = true;
   };
 
   return (
@@ -288,12 +308,12 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
         <article className="summary-card">
           <span className="summary-label">Pods</span>
           <strong>{state ? `${readyPods}/${state.pods.length}` : "--"}</strong>
-          <p>{failingPods > 0 ? `${failingPods} attention signal${failingPods > 1 ? "s" : ""}` : `Running ${versionLabel}`}</p>
+          <p>{failingPods > 0 ? `${failingPods} not ready — check readiness` : readyPods === 0 ? "No pods running" : `All ready, running ${versionLabel}`}</p>
         </article>
         <article className="summary-card">
           <span className="summary-label">Drift</span>
           <strong>{state ? driftCount : "--"}</strong>
-          <p>{driftCount === 0 ? "In sync" : "Reconciling..."}</p>
+          <p>{driftCount === 0 ? "Desired matches actual" : `${driftCount} dimension${driftCount > 1 ? "s" : ""} differ`}</p>
         </article>
         <article className="summary-card">
           <span className="summary-label">Cluster</span>
@@ -327,7 +347,6 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
                 }
                 runAction(`Rollout ${tag}`, () => rolloutVersion(tag), { deployed: true, version: tag });
               }}
-              onGenerateTraffic={onGenerateTraffic}
               onReset={() => runAction("Reset demo", resetDemo, resetDesired)}
             />
           </PanelErrorBoundary>
@@ -359,6 +378,7 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
               events={trafficEvents}
               onCountChange={(value) => setTrafficCount(Number.isFinite(value) ? Math.min(100, Math.max(1, value)) : 12)}
               onGenerate={onGenerateTraffic}
+              onStop={onStopTraffic}
               onClear={() => setTrafficEvents([])}
             />
           </PanelErrorBoundary>

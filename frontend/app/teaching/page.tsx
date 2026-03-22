@@ -7,7 +7,7 @@ import { ExplainedFlowPanel } from "../../components/ExplainedFlowPanel";
 import { PageNav } from "../../components/PageNav";
 import { PageHero } from "../../components/PageHero";
 import { getState, subscribeToK8sEvents, subscribeToState } from "../../lib/api";
-import { ExplainedFlowRun, ExplainedFlowScenario, findExplainedFlowScenario } from "../../lib/explainedFlow";
+import { ExplainedFlowRun, ExplainedFlowScenario, actionLabelToScenario, findExplainedFlowScenario } from "../../lib/explainedFlow";
 import { ClusterState, ConnectionState, ControlPlaneComponent, KubernetesEvent } from "../../lib/types";
 
 const ACTIVITY_WINDOW_MS = 5000;
@@ -31,7 +31,13 @@ export default function TeachingPage() {
   const [state, setState] = useState<ClusterState | null>(null);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [explainedScenario, setExplainedScenario] = useState<ExplainedFlowScenario>("apply-yaml-journey");
-  const [explainedRun, setExplainedRun] = useState<ExplainedFlowRun | null>(null);
+  const [explainedRun, setExplainedRun] = useState<ExplainedFlowRun>({
+    scenario: "apply-yaml-journey",
+    status: "selected",
+    actionLabel: findExplainedFlowScenario("apply-yaml-journey").label,
+    startedAt: new Date().toISOString(),
+    message: "Scenario selected. Steps below describe the conceptual control-plane sequence."
+  });
   const [activeComponents, setActiveComponents] = useState<Set<ControlPlaneComponent>>(new Set());
 
   const recentEventsRef = useRef<{ at: number; components: ControlPlaneComponent[] }[]>([]);
@@ -126,6 +132,33 @@ export default function TeachingPage() {
       message: "Scenario selected. Steps below describe the conceptual control-plane sequence."
     });
   };
+
+  // Auto-sync: when the presenter triggers an action on the dashboard (other tab),
+  // automatically switch the explained-flow scenario to match.
+  useEffect(() => {
+    const handler = (event: StorageEvent) => {
+      if (event.key !== "last-demo-action" || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue) as { action: string; at: number };
+        const matched = actionLabelToScenario(payload.action);
+        if (matched) {
+          setExplainedScenario(matched);
+          const next = findExplainedFlowScenario(matched);
+          setExplainedRun({
+            scenario: matched,
+            status: "selected",
+            actionLabel: next.label,
+            startedAt: new Date().toISOString(),
+            message: "Scenario selected. Steps below describe the conceptual control-plane sequence."
+          });
+        }
+      } catch {
+        // Malformed payload; ignore.
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   return (
     <main className="page-shell">

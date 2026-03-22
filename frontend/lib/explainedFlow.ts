@@ -313,3 +313,20 @@ export function findExplainedFlowScenario(
 ): ExplainedFlowScenarioDefinition {
   return explainedFlowScenarios.find((item) => item.key === scenario) ?? explainedFlowScenarios[0];
 }
+
+/**
+ * Maps a dashboard action label (e.g. "Deploy app") to the matching
+ * explained-flow scenario key so the teaching page can auto-switch
+ * when the presenter triggers an action on the dashboard.
+ */
+export function actionLabelToScenario(label: string): ExplainedFlowScenario | null {
+  const lower = label.toLowerCase();
+  if (lower === "deploy app") return "deploy-app";
+  if (lower.startsWith("scale to")) return "scale-deployment";
+  if (lower === "delete pod") return "delete-pod";
+  if (lower === "break readiness") return "break-readiness";
+  if (lower === "restore readiness") return "break-readiness";
+  if (lower.startsWith("rollout")) return "rollout-new-version";
+  if (lower === "reset demo") return "deploy-app";
+  return null;
+}

@@ -7,12 +7,13 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  retryCount: number;
 }
 
 export class PanelErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, retryCount: 0 };
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
@@ -31,13 +32,13 @@ export class PanelErrorBoundary extends Component<Props, State> {
             type="button"
             className="action-button"
             style={{ maxWidth: 120, marginTop: 10 }}
-            onClick={() => this.setState({ hasError: false })}
+            onClick={() => this.setState((prev) => ({ hasError: false, retryCount: prev.retryCount + 1 }))}
           >
             Retry
           </button>
         </section>
       );
     }
-    return this.props.children;
+    return <div key={this.state.retryCount}>{this.props.children}</div>;
   }
 }

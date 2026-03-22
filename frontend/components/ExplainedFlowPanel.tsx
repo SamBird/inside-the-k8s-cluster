@@ -16,32 +16,34 @@ interface ExplainedFlowPanelProps {
 
 type StepState = "pending" | "active" | "done" | "error";
 
-function stepStateForIndex(run: ExplainedFlowRun | null, index: number): StepState {
+function stepStateForIndex(run: ExplainedFlowRun | null, index: number, totalSteps: number): StepState {
   if (!run) {
     return "pending";
   }
   if (run.status === "selected") {
-    if (index === 0) {
-      return "active";
-    }
-    return "pending";
+    // Teaching mode: all steps shown as conceptual walkthrough.
+    return "done";
   }
   if (run.status === "success") {
     return "done";
   }
   if (run.status === "running") {
-    if (index <= 2) {
+    // Show roughly the first half as done, the next one as active, rest pending.
+    const activeIndex = Math.floor(totalSteps / 2);
+    if (index < activeIndex) {
       return "done";
     }
-    if (index === 3) {
+    if (index === activeIndex) {
       return "active";
     }
     return "pending";
   }
-  if (index <= 2) {
+  // error: show all before last as done, last attempted as error.
+  const errorIndex = Math.floor(totalSteps / 2);
+  if (index < errorIndex) {
     return "done";
   }
-  if (index === 3) {
+  if (index === errorIndex) {
     return "error";
   }
   return "pending";
@@ -136,7 +138,7 @@ export function ExplainedFlowPanel({
 
       <ol className="explained-flow-steps">
         {selected.steps.map((step, index) => {
-          const stateClass = stepStateForIndex(runForSelection, index);
+          const stateClass = stepStateForIndex(runForSelection, index, selected.steps.length);
           return (
             <li key={step.id} className={`explained-step explained-step-${stateClass}`}>
               <div className="explained-step-index">{index + 1}</div>

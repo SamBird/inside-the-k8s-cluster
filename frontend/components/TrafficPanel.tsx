@@ -6,6 +6,7 @@ interface TrafficPanelProps {
   running: boolean;
   onCountChange: (value: number) => void;
   onGenerate: () => void;
+  onStop: () => void;
   onClear: () => void;
 }
 
@@ -40,6 +41,7 @@ export function TrafficPanel({
   running,
   onCountChange,
   onGenerate,
+  onStop,
   onClear
 }: TrafficPanelProps) {
   const successful = events.filter((e) => e.ok).length;
@@ -74,6 +76,11 @@ export function TrafficPanel({
             "Generate Traffic"
           )}
         </button>
+        {running ? (
+          <button type="button" className="cancel-action-button" onClick={onStop}>
+            Stop
+          </button>
+        ) : null}
         {events.length > 0 && !running ? (
           <button type="button" className="cancel-action-button" onClick={onClear}>
             Clear
@@ -88,6 +95,11 @@ export function TrafficPanel({
               ? `${successful}/${events.length} successful`
               : `${successful}/${events.length} successful · ${failed} failed`}
           </p>
+
+          <div className="traffic-rate-bar">
+            <div className="traffic-rate-ok" style={{ width: `${(successful / Math.max(events.length, 1)) * 100}%` }} />
+            <div className="traffic-rate-fail" style={{ width: `${(failed / Math.max(events.length, 1)) * 100}%` }} />
+          </div>
 
           <div className="traffic-pod-pills">
             {podSummary.map((pod) => (

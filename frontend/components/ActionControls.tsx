@@ -12,7 +12,6 @@ interface ActionControlsProps {
   onBreakReadiness: () => void;
   onRestoreReadiness: () => void;
   onRollout: () => void;
-  onGenerateTraffic: () => void;
   onReset: () => void;
   onCancelAction: () => void;
 }
@@ -35,7 +34,6 @@ export function ActionControls({
   onBreakReadiness,
   onRestoreReadiness,
   onRollout,
-  onGenerateTraffic,
   onReset,
   onCancelAction
 }: ActionControlsProps) {
@@ -45,10 +43,6 @@ export function ActionControls({
         <h2>Presenter Controls</h2>
         <span className="muted">Safe, predictable operations against the demo namespace</span>
       </div>
-      <p className="presenter-guidance">
-        Suggested live flow: deploy, create drift, show recovery, then prove service behavior under traffic.
-      </p>
-
       <div className="action-stage-grid">
         <section className="action-stage">
           <div className="action-stage-header">
@@ -97,7 +91,7 @@ export function ActionControls({
             <button className="action-button action-warn" onClick={onBreakReadiness} disabled={disabledIfBusy(busyAction)}>
               Break readiness
             </button>
-            <button className="action-button" onClick={onRestoreReadiness} disabled={disabledIfBusy(busyAction)}>
+            <button className="action-button action-fix" onClick={onRestoreReadiness} disabled={disabledIfBusy(busyAction)}>
               Restore readiness
             </button>
           </div>
@@ -118,10 +112,6 @@ export function ActionControls({
                 Rollout new version
               </button>
             </div>
-
-            <button className="action-button" onClick={onGenerateTraffic} disabled={disabledIfBusy(busyAction)}>
-              Generate traffic
-            </button>
 
             <button className="action-button action-danger" onClick={onReset} disabled={disabledIfBusy(busyAction)}>
               Reset demo

@@ -52,7 +52,7 @@ export function EventTimeline({ events, k8sEvents }: EventTimelineProps) {
               const isWarning = ev.event_type === "Warning";
               return (
                 <li
-                  key={`${ev.object_name}-${ev.reason}-${ev.last_seen ?? idx}`}
+                  key={`k8s-${idx}-${ev.object_name}-${ev.reason}`}
                   className={`timeline-item k8s-event-item ${isWarning ? "k8s-event-warning" : "k8s-event-normal"}`}
                 >
                   <div className="timeline-row">

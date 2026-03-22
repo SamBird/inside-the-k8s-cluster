@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
 import { ClusterState, DesiredState } from "../lib/types";
 import { StatusBadge } from "./StatusBadge";
 
@@ -14,6 +18,10 @@ interface CompareRow {
 }
 
 export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps) {
+  const prevActualsRef = useRef<Record<string, string>>({});
+  const changedKeysRef = useRef<Set<string>>(new Set());
+  const flashGenRef = useRef(0);
+
   const expectedReadyPods = desired.deployed ? desired.replicas : 0;
   const actualValues = {
     deployed: actual?.deployment.exists ?? false,
@@ -43,13 +51,13 @@ export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps)
       match: desired.version === actualValues.version
     },
     {
-      label: "Traffic-eligible pods",
+      label: "Ready pods",
       desired: String(expectedReadyPods),
       actual: String(actualValues.readyPods),
       match: expectedReadyPods === actualValues.readyPods
     },
     {
-      label: "Startup readiness policy",
+      label: "Readiness config",
       desired: desired.readinessHealthy ? "Healthy" : "Failing",
       actual: actualValues.readinessHealthy ? "Healthy" : "Failing",
       match: desired.readinessHealthy === actualValues.readinessHealthy
@@ -57,6 +65,38 @@ export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps)
   ];
 
   const driftCount = rows.filter((row) => !row.match).length;
+
+  // Detect which rows changed since last render and trigger a flash.
+  const currentActuals: Record<string, string> = {};
+  for (const row of rows) {
+    currentActuals[row.label] = row.actual;
+  }
+
+  const changed = new Set<string>();
+  for (const row of rows) {
+    const prev = prevActualsRef.current[row.label];
+    if (prev !== undefined && prev !== row.actual) {
+      changed.add(row.label);
+    }
+  }
+
+  if (changed.size > 0) {
+    changedKeysRef.current = changed;
+    flashGenRef.current += 1;
+  }
+  prevActualsRef.current = currentActuals;
+
+  // Force re-trigger animation by using a generation key.
+  const flashGen = flashGenRef.current;
+
+  // Clear changed keys after animation duration so flash doesn't persist across unrelated re-renders.
+  useEffect(() => {
+    if (changedKeysRef.current.size === 0) return;
+    const timer = setTimeout(() => {
+      changedKeysRef.current = new Set();
+    }, 1600);
+    return () => clearTimeout(timer);
+  }, [flashGen]);
 
   return (
     <section className="panel desired-panel">
@@ -82,14 +122,17 @@ export function DesiredActualPanel({ desired, actual }: DesiredActualPanelProps)
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{row.desired}</td>
-              <td>{row.actual}</td>
-              <td>{row.match ? <StatusBadge tone="ok" label="Match" /> : <StatusBadge tone="warn" label="Drift" />}</td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const flashing = changedKeysRef.current.has(row.label);
+            return (
+              <tr key={row.label}>
+                <td>{row.label}</td>
+                <td>{row.desired}</td>
+                <td className={flashing ? "cell-changed" : undefined} key={flashing ? `${row.label}-${flashGen}` : row.label}>{row.actual}</td>
+                <td>{row.match ? <StatusBadge tone="ok" label="Match" /> : <StatusBadge tone="warn" label="Drift" />}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

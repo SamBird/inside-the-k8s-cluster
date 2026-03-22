@@ -48,14 +48,7 @@ export function TopologyView({ state }: TopologyViewProps) {
     ? workerNodes
     : state.nodes.length
     ? state.nodes
-    : [
-        {
-          name: "worker (pending discovery)",
-          role: "worker",
-          ready: false,
-          kubelet_version: null
-        }
-      ];
+    : [];
 
   const grouped = podsByNode(nodeList, state.pods);
   const workerNodeSet = new Set(nodeList.map((node) => node.name));
@@ -73,7 +66,7 @@ export function TopologyView({ state }: TopologyViewProps) {
       <div className="topology-grid">
         <div className="cluster-block">
           <div className="cluster-title-row">
-            <h3>Worker Node Topology</h3>
+            <h3>Cluster Topology</h3>
             <StatusBadge
               tone={nodeList.some((node) => node.ready) ? "ok" : "warn"}
               label={`${scheduledOnWorkers} Pods Scheduled`}
@@ -81,6 +74,9 @@ export function TopologyView({ state }: TopologyViewProps) {
           </div>
           <p className="cluster-meta">Namespace: {state.namespace}</p>
 
+          {nodeList.length === 0 ? (
+            <p className="muted">No worker nodes discovered yet.</p>
+          ) : (
           <div className="node-columns">
             {nodeList.map((node) => {
               const pods = grouped.get(node.name) ?? [];
@@ -105,7 +101,7 @@ export function TopologyView({ state }: TopologyViewProps) {
                         <div className="pod-chip-bottom">
                           <StatusBadge tone={pod.ready ? "ok" : "bad"} label={pod.ready ? "Ready" : "Not Ready"} />
                           <span>Restarts: {pod.restart_count}</span>
-                          <span>{pod.image ?? "image unavailable"}</span>
+                          <span className="pod-chip-image" title={pod.image ?? undefined}>{pod.image ?? "image unavailable"}</span>
                         </div>
                       </div>
                     ))}
@@ -114,6 +110,7 @@ export function TopologyView({ state }: TopologyViewProps) {
               );
             })}
           </div>
+          )}
         </div>
       </div>
     </section>
