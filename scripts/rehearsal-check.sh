@@ -93,6 +93,18 @@ check "control-plane overview renders" check_grep_url "${FRONTEND_URL}/teaching"
 check "Apply YAML journey present in UI bundle" grep -q "Apply YAML journey" frontend/lib/explainedFlow.ts
 check "Controller reconciliation present in UI bundle" grep -q "Controller reconciliation" frontend/lib/explainedFlow.ts
 
+# SSE endpoint check — verify initial state arrives within 5s
+check "SSE state stream returns initial event" timeout 5 curl -sN "${BACKEND_URL}/api/events" 2>/dev/null | head -1 | grep -q "event:"
+
+# Rollout image check — warn if v2 not loaded
+v2_image=$(docker exec "${CLUSTER_NAME}-control-plane" crictl images 2>/dev/null | grep demo-app | grep v2 || true)
+if [[ -n "$v2_image" ]]; then
+  printf '[ok] demo-app:v2 image loaded in cluster\n'
+else
+  printf '[warn] demo-app:v2 not loaded — rollout demo will fail\n' >&2
+  printf '       Run: make demo-image VERSION=v2 && make demo-load VERSION=v2\n' >&2
+fi
+
 printf '\nScenario order (manual run):\n'
 printf '1) Cluster overview\n'
 printf '2) Control-plane overview\n'

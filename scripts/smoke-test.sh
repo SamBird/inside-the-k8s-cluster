@@ -45,6 +45,47 @@ get_state_field() {
   curl -s "${BACKEND_URL}/api/state" | python3 -c "import sys,json; d=json.load(sys.stdin); print($1)" 2>/dev/null || echo ""
 }
 
+timed_post_action() {
+  # Like post_action but asserts response arrives within MAX_ACTION_SECONDS.
+  local label="$1" path="$2"
+  local default_body='{}'
+  local body="${3:-$default_body}"
+  local max_seconds="${MAX_ACTION_SECONDS:-10}"
+  local start_time end_time elapsed status
+  start_time=$(python3 -c "import time; print(time.time())")
+  status=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$max_seconds" -X POST \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${BACKEND_URL}${path}" 2>/dev/null || echo "timeout")
+  end_time=$(python3 -c "import time; print(time.time())")
+  elapsed=$(python3 -c "print(f'{$end_time - $start_time:.1f}')")
+  if [[ "$status" == "200" ]]; then
+    pass "$label (${elapsed}s)"
+  elif [[ "$status" == "timeout" ]]; then
+    fail "$label" "timed out after ${max_seconds}s"
+  else
+    fail "$label" "HTTP $status (${elapsed}s)"
+  fi
+}
+
+poll_state_field() {
+  # Polls get_state_field until expected value or timeout.
+  # Usage: poll_state_field 'expression' 'expected_value' timeout_seconds label
+  local expression="$1" expected="$2" timeout="$3" label="$4"
+  local deadline=$((SECONDS + timeout))
+  while [[ $SECONDS -lt $deadline ]]; do
+    local value
+    value=$(get_state_field "$expression")
+    if [[ "$value" == "$expected" ]]; then
+      pass "$label"
+      return 0
+    fi
+    sleep 2
+  done
+  fail "$label" "expected $expected, got $(get_state_field "$expression") after ${timeout}s"
+  return 1
+}
+
 echo "================================================"
 echo "  Inside-the-k8s-cluster pre-demo smoke test"
 echo "  Backend: ${BACKEND_URL}"
@@ -58,31 +99,22 @@ check_http "Backend health" "${BACKEND_URL}/healthz"
 check_http "Get initial state" "${BACKEND_URL}/api/state"
 
 # Step 3 — Deploy
-post_action "Deploy app" "/api/actions/deploy"
+timed_post_action "Deploy app" "/api/actions/deploy"
 
-# Step 4 — Wait for pods
-info "Waiting 8s for pods to start..."
-sleep 8
+# Step 4 — Poll for deployment ready
+poll_state_field 'd["deployment"]["exists"]' "True" 15 "Deployment exists after deploy"
+poll_state_field 'd["deployment"]["ready_replicas"]' "1" 20 "At least 1 pod ready after deploy"
 
-# Step 5 — State check: deployment exists
-deployment_exists=$(get_state_field 'd["deployment"]["exists"]')
-if [[ "$deployment_exists" == "True" ]]; then
-  pass "Deployment exists after deploy"
-else
-  fail "Deployment exists after deploy" "deployment.exists=$deployment_exists"
-fi
+# Step 5 — Scale to 3
+timed_post_action "Scale to 3" "/api/actions/scale" '{"replicas": 3}'
 
-# Step 6 — Scale to 3
-post_action "Scale to 3" "/api/actions/scale" '{"replicas": 3}'
+# Step 6 — Poll for 3 ready pods
+poll_state_field 'd["deployment"]["ready_replicas"]' "3" 30 "3 pods ready after scale"
 
-# Step 7 — Wait for all pods
-info "Waiting 10s for scaled pods..."
-sleep 10
-
-# Step 8 — Generate traffic (3 calls)
+# Step 7 — Generate traffic (3 calls)
 traffic_ok=true
 for i in 1 2 3; do
-  status=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/traffic/info")
+  status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "${BACKEND_URL}/api/traffic/info")
   if [[ "$status" != "200" ]]; then
     traffic_ok=false
     break
@@ -94,68 +126,59 @@ else
   fail "Traffic generation" "one or more requests did not return 200"
 fi
 
-# Step 9 — Delete a pod (no body = backend picks oldest)
-post_action "Delete a pod" "/api/actions/delete-pod" '{}'
+# Step 8 — Delete a pod (no body = backend picks oldest)
+timed_post_action "Delete a pod" "/api/actions/delete-pod" '{}'
 
-# Step 10 — Wait for replacement
-info "Waiting 8s for pod replacement..."
-sleep 8
+# Step 9 — Poll for replacement (3 ready pods again)
+poll_state_field 'd["deployment"]["ready_replicas"]' "3" 20 "Pod replacement complete (3 ready)"
 
-# Step 11 — Break readiness
-post_action "Break readiness" "/api/actions/toggle-readiness" '{"fail": true}'
+# Step 10 — Break readiness
+timed_post_action "Break readiness" "/api/actions/toggle-readiness" '{"fail": true}'
 
-# Step 12 — Wait
-info "Waiting 5s..."
-sleep 5
+# Step 11 — Verify at least one pod is NotReady
+info "Waiting for readiness probe to detect failure..."
+not_ready_found=false
+deadline=$((SECONDS + 15))
+while [[ $SECONDS -lt $deadline ]]; do
+  ready_count=$(get_state_field 'd["deployment"]["ready_replicas"]')
+  if [[ "$ready_count" != "3" && -n "$ready_count" ]]; then
+    not_ready_found=true
+    break
+  fi
+  sleep 2
+done
+if $not_ready_found; then
+  pass "Ready count dropped after break readiness (ready=$ready_count)"
+else
+  fail "Break readiness effect" "ready_replicas still 3 after 15s"
+fi
 
-# Step 13 — Restore readiness
-post_action "Restore readiness" "/api/actions/toggle-readiness" '{"fail": false}'
+# Step 12 — Restore readiness
+timed_post_action "Restore readiness" "/api/actions/toggle-readiness" '{"fail": false}'
 
-# Step 14 — Wait
-info "Waiting 5s..."
-sleep 5
+# Step 13 — Poll for all 3 ready again
+poll_state_field 'd["deployment"]["ready_replicas"]' "3" 15 "All pods ready after restore"
 
-# Step 15 — Rollout to v2 (skip if image not loaded)
+# Step 14 — Rollout to v2 (skip if image not loaded)
 v2_present=$(docker exec inside-k8s-control-plane crictl images 2>/dev/null | grep demo-app | grep v2 || true)
 if [[ -n "$v2_present" ]]; then
-  post_action "Rollout to v2" "/api/actions/rollout" '{"version": "v2"}'
-  info "Waiting 15s for rollout..."
-  sleep 15
+  timed_post_action "Rollout to v2" "/api/actions/rollout" '{"version": "v2"}'
 
-  # Step 17 — Verify v2
-  app_version=$(get_state_field 'd["config"]["app_version"]')
-  if [[ "$app_version" == "v2" ]]; then
-    pass "Version is v2 after rollout"
-  else
-    fail "Version is v2 after rollout" "config.app_version=$app_version"
-  fi
+  # Poll for version to propagate
+  poll_state_field 'd["config"]["app_version"]' "v2" 30 "Version is v2 after rollout"
 else
   echo "[SKIP] Rollout to v2: demo-app:v2 not found in kind cluster"
   echo "       Run: make demo-image VERSION=v2 && make demo-load VERSION=v2"
 fi
 
-# Step 18 — Reset
-post_action "Reset demo" "/api/actions/reset"
+# Step 15 — Reset
+timed_post_action "Reset demo" "/api/actions/reset"
 
-# Step 19 — Wait
-info "Waiting 10s for reset..."
-sleep 10
-
-# Step 20 — Verify reset: deployment exists, replicas target is 1
-deploy_exists_after=$(get_state_field 'd["deployment"]["exists"]')
-replicas_after=$(get_state_field 'd["deployment"]["replicas"]')
-
-if [[ "$deploy_exists_after" == "True" ]]; then
-  pass "Deployment exists after reset"
-else
-  fail "Deployment exists after reset" "deployment.exists=$deploy_exists_after"
-fi
-
-if [[ "$replicas_after" == "1" ]]; then
-  pass "Replicas target is 1 after reset"
-else
-  fail "Replicas target is 1 after reset" "deployment.replicas=$replicas_after"
-fi
+# Step 16 — Poll for reset completeness: deployment exists, replicas=1, version=v1, pod ready
+poll_state_field 'd["deployment"]["exists"]' "True" 15 "Deployment exists after reset"
+poll_state_field 'd["deployment"]["replicas"]' "1" 15 "Replicas target is 1 after reset"
+poll_state_field 'd.get("config", {}).get("app_version", "")' "v1" 15 "Version is v1 after reset"
+poll_state_field 'd["deployment"]["ready_replicas"]' "1" 30 "1 pod ready after reset"
 
 echo ""
 echo "================================================"
