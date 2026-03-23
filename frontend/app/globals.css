@@ -99,7 +99,7 @@ button {
 }
 
 .hero-header p {
-  margin: 8px 0 0;
+  margin: 0;
   max-width: 58ch;
   font-size: clamp(1rem, 1.1vw, 1.18rem);
   color: var(--ink-soft);
@@ -107,6 +107,9 @@ button {
 
 .hero-copy {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .hero-side {
@@ -116,8 +119,8 @@ button {
 .hero-eyebrow {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 12px;
+  align-self: flex-start;
+  padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid #aec1cc;
   background: rgba(255, 255, 255, 0.92);
@@ -707,6 +710,40 @@ input:focus-visible {
   font-size: 0.93rem;
 }
 
+.step-through-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid #8ca5b5;
+  border-radius: 10px;
+  background: #f0f6fa;
+}
+
+.step-through-controls .action-button {
+  min-width: 110px;
+}
+
+.step-through-counter {
+  min-width: 48px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.action-button-secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.action-button-secondary:hover:not(:disabled) {
+  background: #e8eef2;
+}
+
 .explained-flow-steps {
   margin: 10px 0 0;
   padding: 0;
@@ -888,100 +925,21 @@ input:focus-visible {
   margin: 0;
 }
 
-.lineage-root {
-  margin-top: 10px;
-  display: grid;
-  gap: 12px;
-}
-
-.lineage-step-card {
-  border: 1px solid #a6bbc7;
-  border-radius: 12px;
-  padding: 12px;
-  background: linear-gradient(180deg, #fbfdff, #f4f9fc);
-}
-
-.lineage-step-root {
-  border-color: #8db39d;
-  background: linear-gradient(180deg, #eef9f2, #f8fcfa);
-}
-
-.ownership-arrow-chip {
-  justify-self: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid #90a6b3;
-  background: #f3f7fa;
-  color: #34505f;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.ownership-branch-list {
-  display: grid;
-  gap: 12px;
-}
-
-.ownership-branch {
-  display: grid;
-  gap: 10px;
-}
-
-.ownership-step-card {
-  border-color: #96abc0;
-}
-
-.replicaset-meta {
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-}
-
-.ownership-pod-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-
-.lineage-pod-pill {
-  border: 1px solid #aac0cd;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fff;
-}
-
-.ownership-pod-pill {
-  min-height: 78px;
-}
-
-.lineage-empty {
-  border: 1px dashed #92a9b8;
-  border-radius: 12px;
-  padding: 12px;
-  background: #f8fbfd;
-}
 
 .timeline-list {
   list-style: none;
   margin: 10px 0 0;
   padding: 0;
-  max-height: 620px;
-  overflow: auto;
-  display: grid;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
+/* Shared event card styles — used by both panels */
 .timeline-item {
-  border-left: 6px solid #5f7988;
   border-radius: 8px;
   padding: 8px 10px;
-  background: #f8fbfd;
 }
 
 .timeline-item p {
@@ -1001,47 +959,113 @@ input:focus-visible {
   color: #385362;
 }
 
-.level-info {
-  border-left-color: var(--neutral);
+.event-card {
+  border-left: 4px solid #5f7988;
 }
 
-.level-success {
+.event-tone-ok {
   border-left-color: var(--ok);
-}
-
-.level-warn {
-  border-left-color: var(--warn);
-}
-
-.level-error {
-  border-left-color: var(--bad);
-}
-
-/* Kubernetes events section within EventTimeline */
-.k8s-events-header {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #d1dde6;
-}
-
-.k8s-events-list {
-  max-height: 340px;
-}
-
-.k8s-event-item {
-  border-left-width: 4px;
-}
-
-.k8s-event-normal {
-  border-left-color: var(--accent);
   background: #f3fbfb;
 }
 
-.k8s-event-warning {
+.event-tone-warn {
   border-left-color: var(--warn);
   background: #fffaf0;
 }
 
+.event-tone-error {
+  border-left-color: var(--bad);
+  background: #fdf3f3;
+}
+
+.event-tone-neutral {
+  border-left-color: var(--neutral);
+  background: #f8fbfd;
+}
+
+.event-type-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.event-badge-ok {
+  background: #e0f5f5;
+  color: #0c6e70;
+}
+
+.event-badge-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.event-badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.event-badge-neutral {
+  background: #e8eef2;
+  color: #385362;
+}
+
+.event-detail {
+  margin: 4px 0 0;
+}
+
+.event-hint {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.event-object {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.event-host {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+/* Side-by-side event layout */
+.events-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.events-split-col {
+  max-height: 620px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.events-split-col .timeline-list {
+  flex: 1;
+  min-height: 0;
+}
+
+/* K8s-specific component tags */
 .k8s-component-tag {
   display: inline-flex;
   align-items: center;
@@ -1075,12 +1099,6 @@ input:focus-visible {
   font-weight: 700;
 }
 
-.k8s-event-object {
-  font-family: "IBM Plex Mono", "Consolas", monospace;
-  font-size: 0.92rem;
-  color: var(--ink-soft);
-}
-
 /* Control plane card activity pulse */
 .control-plane-card-active {
   animation: cp-pulse 1.5s ease-in-out infinite;
@@ -1095,6 +1113,55 @@ input:focus-visible {
   50% {
     box-shadow: 0 0 0 6px rgba(15, 139, 141, 0.10);
   }
+}
+
+/* Compact K8s event feed (teaching page) */
+.compact-k8s-feed {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.compact-k8s-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f6faf8;
+  border: 1px solid #cde0d5;
+  font-size: 0.88rem;
+}
+
+.compact-k8s-item.compact-k8s-warn {
+  background: #fff8ed;
+  border-color: #e4c78a;
+}
+
+.compact-k8s-time {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  min-width: 70px;
+}
+
+.compact-k8s-msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-k8s-src {
+  font-size: 0.8rem;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .traffic-controls {
@@ -1271,6 +1338,10 @@ input:focus-visible {
     width: 100%;
   }
 
+  .events-split {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 @media (max-width: 720px) {
@@ -1299,7 +1370,4 @@ input:focus-visible {
     min-width: 0;
   }
 
-  .ownership-pod-grid {
-    grid-template-columns: 1fr;
-  }
 }

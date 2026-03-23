@@ -118,4 +118,5 @@ For repository contributors and Codex-assisted changes:
 - Architecture: [docs/architecture.md](docs/architecture.md)
 - Presentation guide: [docs/presentation-guide.md](docs/presentation-guide.md)
 - Rehearsal checklist: [docs/rehearsal-checklist.md](docs/rehearsal-checklist.md)
+- kubectl cheatsheet: [docs/kubectl-cheatsheet.md](docs/kubectl-cheatsheet.md)
 - Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)

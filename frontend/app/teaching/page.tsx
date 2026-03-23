@@ -39,6 +39,8 @@ export default function TeachingPage() {
     message: "Scenario selected. Steps below describe the conceptual control-plane sequence."
   });
   const [activeComponents, setActiveComponents] = useState<Set<ControlPlaneComponent>>(new Set());
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [k8sEvents, setK8sEvents] = useState<KubernetesEvent[]>([]);
 
   const recentEventsRef = useRef<{ at: number; components: ControlPlaneComponent[] }[]>([]);
 
@@ -91,6 +93,9 @@ export default function TeachingPage() {
           }
         }
         setActiveComponents(active);
+
+        // Store recent K8s events for the compact feed.
+        setK8sEvents((existing) => [event, ...existing].slice(0, 15));
       },
       onError: () => {},
       onOpen: () => {}
@@ -123,6 +128,7 @@ export default function TeachingPage() {
 
   const onExplainedScenarioChange = (nextScenario: ExplainedFlowScenario) => {
     setExplainedScenario(nextScenario);
+    setCurrentStep(0);
     const next = findExplainedFlowScenario(nextScenario);
     setExplainedRun({
       scenario: nextScenario,
@@ -143,6 +149,7 @@ export default function TeachingPage() {
         const matched = actionLabelToScenario(payload.action);
         if (matched) {
           setExplainedScenario(matched);
+          setCurrentStep(0);
           const next = findExplainedFlowScenario(matched);
           setExplainedRun({
             scenario: matched,
@@ -179,7 +186,39 @@ export default function TeachingPage() {
           run={explainedRun}
           state={state}
           onScenarioChange={onExplainedScenarioChange}
+          currentStep={currentStep}
+          onStepAdvance={setCurrentStep}
         />
+
+        <section className="panel layout-span-2 reveal-4">
+          <div className="panel-header-row">
+            <h2>Live Kubernetes Events</h2>
+            <span className="muted">{k8sEvents.length} events</span>
+          </div>
+          {k8sEvents.length === 0 ? (
+            <p className="muted">No Kubernetes events yet. Trigger an action on the dashboard to see events flow in.</p>
+          ) : (
+            <ul className="compact-k8s-feed">
+              {k8sEvents.map((ev, idx) => {
+                const isWarning = ev.event_type === "Warning";
+                return (
+                  <li key={`k8s-${idx}-${ev.object_name}-${ev.reason}`} className={`compact-k8s-item ${isWarning ? "compact-k8s-warn" : ""}`}>
+                    <span className="compact-k8s-time">
+                      {ev.last_seen ? new Date(ev.last_seen).toLocaleTimeString() : "--"}
+                    </span>
+                    <span className={`event-type-badge event-badge-${isWarning ? "warn" : "ok"}`}>
+                      {ev.reason}
+                    </span>
+                    <span className="compact-k8s-msg">{ev.message}</span>
+                    {ev.source_component ? (
+                      <span className="compact-k8s-src">{ev.source_component}</span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </section>
     </main>
   );

@@ -119,8 +119,10 @@ class KubernetesEventItem(BaseModel):
     message: str
     object_kind: str
     object_name: str
+    object_namespace: str | None = None
     event_type: str = "Normal"
     source_component: str | None = None
+    source_host: str | None = None
     first_seen: datetime | None = None
     last_seen: datetime | None = None
     count: int = 1

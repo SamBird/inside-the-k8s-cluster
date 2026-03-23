@@ -110,8 +110,10 @@ export interface KubernetesEvent {
   message: string;
   object_kind: string;
   object_name: string;
+  object_namespace?: string | null;
   event_type: "Normal" | "Warning";
   source_component?: string | null;
+  source_host?: string | null;
   first_seen?: string | null;
   last_seen?: string | null;
   count: number;

@@ -30,7 +30,37 @@ Set a terminal shortcut for fallback commands:
 export KCTX=kind-inside-k8s
 ```
 
+## Timing Guide (30-Minute Slot)
+
+| Step | Topic | Est. Time | Notes |
+|------|-------|-----------|-------|
+| 0 | Introduction | 2 min | Context-setting, no clicks needed |
+| 1 | Cluster overview | 2 min | Quick orientation |
+| 2 | Control-plane overview | 2 min | Shorten to 1 min if pressed for time |
+| 3 | Apply YAML journey | 3–4 min | Core concept, don't rush |
+| 4 | Controller reconciliation | 3–4 min | Self-healing is a crowd favourite |
+| 5 | Readiness, traffic & service routing | 5 min | Combined centerpiece demo |
+| 6 | Scaling | 3 min | Quick — audience gets the pattern by now |
+| 7 | Rollout | 3–4 min | Show old/new pods coexisting |
+| 8 | Wrap-up & takeaways | 2 min | Three key points |
+| | **Total** | **~27–30 min** | |
+
+**If running late:**
+- Shorten or skip step 2 (control-plane overview) — say the one-liner instead: "API server accepts intent, etcd stores it, controllers reconcile it, scheduler places pods."
+- In step 5, do the full three-beat readiness+traffic flow but skip the restore step — just narrate it.
+- In step 6, scale to 3 only (skip scaling back to 1).
+- **5 minutes remaining checkpoint:** If you're still on step 5 or earlier, skip to Rollout (step 7) then Wrap-up (step 8).
+
 ## Talk Sequence
+
+### 0. Introduction
+
+| | |
+|---|---|
+| **Action** | No clicks. Ensure dashboard is visible on the projector screen. |
+| **Presenter words** | "Kubernetes is a desired-state system. You tell it what you want, and internal loops make it happen. Today we'll look inside the cluster to see exactly what happens after you apply YAML — how controllers, the scheduler, and readiness probes work together to turn your intent into running, traffic-serving pods." |
+| **Audience focus** | Set expectations: this is a live demo against a real local cluster, not slides. |
+| **Duration** | ~2 minutes |
 
 ### 1. Cluster Overview
 
@@ -76,16 +106,25 @@ export KCTX=kind-inside-k8s
 | **Likely questions** | "What if multiple pods fail at once?" / "How does Kubernetes pick which replacement pod to create?" |
 | **Terminal fallback** | `curl -X POST http://localhost:8000/api/actions/delete-pod -H 'Content-Type: application/json' -d '{}'` |
 
-### 5. Readiness vs Running
+### 5. Readiness, Traffic & Service Routing
+
+This is the centerpiece demo — it proves that Running and Ready are different signals, and that Service routing responds to readiness in real time.
+
+**Three-beat flow (requires 3 replicas — scale up first if not already at 3):**
+
+| Beat | Action | What the audience sees |
+|------|--------|----------------------|
+| **Beat 1: Baseline traffic** | Click `Generate Traffic` (12 requests). | Traffic distributes across all 3 pods. All pods show "Ready" pills. |
+| **Beat 2: Break one pod** | Click `Break readiness`, wait 5s, then `Generate Traffic` again. | One pod shows "Not Ready" in topology. Traffic only hits the 2 remaining ready pods. The broken pod is Running but receives zero requests. |
+| **Beat 3: Restore** | Click `Restore readiness`, wait 5s, then `Generate Traffic` again. | All 3 pods are Ready again. Traffic redistributes across all 3. |
 
 | | |
 |---|---|
-| **Action** | Click `Break readiness`, optionally `Generate traffic`, then `Restore readiness`. |
-| **Presenter words** | "Running means process exists. Ready means safe for traffic. Kubernetes routes based on readiness, not just process existence." |
-| **Audience focus** | Pods can be Running while still excluded from Service traffic until Ready. |
-| **K8s principle** | Running and Ready are different signals with different meanings. |
-| **Likely questions** | "Does liveness behave the same way?" / "What causes readiness flapping?" |
-| **Terminal fallback** | `curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":true}'` then `curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":false}'` |
+| **Presenter words** | "Running means the process exists. Ready means safe for traffic. Watch — I'll break one pod's readiness without killing it. The pod stays Running, but the Service stops sending it requests. This is how Kubernetes protects users from unhealthy backends." |
+| **Audience focus** | The traffic panel pills are the key visual: pod distribution shifts when readiness changes. |
+| **K8s principle** | Running and Ready are different signals. Service routing uses readiness, not process existence. |
+| **Likely questions** | "Does liveness behave the same way?" (No — liveness failure restarts the pod.) / "What causes readiness flapping?" / "How quickly does the endpoint update?" |
+| **Terminal fallback** | `curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":true}'` then `curl -s http://localhost:8000/api/traffic/info` (repeat a few times) then `curl -X POST http://localhost:8000/api/actions/toggle-readiness -H 'Content-Type: application/json' -d '{"fail":false}'` |
 
 ### 6. Scaling
 
@@ -109,27 +148,18 @@ export KCTX=kind-inside-k8s
 | **Likely questions** | "How do I tune rollout pace?" / "How is rollback handled?" |
 | **Terminal fallback** | `make demo-image VERSION=v2 && make demo-load VERSION=v2` then `curl -X POST http://localhost:8000/api/actions/rollout -H 'Content-Type: application/json' -d '{"version":"v2"}'` |
 
-### 8. Traffic Panel (Optional)
+### 8. Wrap-up & Takeaways
 
 | | |
 |---|---|
-| **Action** | Click `Generate traffic`. |
-| **Presenter words** | "Responses show which pod, node, and version handled each request." |
-| **Audience focus** | Live request-level metadata and changing pod identity. |
-| **K8s principle** | Service routing distributes traffic across ready endpoints. |
-| **Likely questions** | "How does Kubernetes decide which pod gets a request?" |
-| **Terminal fallback** | `curl -s http://localhost:8000/api/traffic/info` |
-
-### 9. Reset
-
-| | |
-|---|---|
-| **Action** | Click `Reset demo`. |
-| **Presenter words** | "A good demo is reproducible. Reset re-applies the baseline so we can rerun scenarios confidently." |
-| **Audience focus** | Rapid return to `v1`, replicas `1`, readiness healthy. |
-| **K8s principle** | Repeatable desired-state operations make live demonstrations reliable. |
-| **Likely questions** | "What exactly does reset modify?" / "Can reset be done entirely with kubectl?" |
+| **Action** | Click `Reset demo` to return to baseline. Leave the dashboard visible. |
+| **Presenter words** | "Three things to take away: (1) Kubernetes is a desired-state system — you declare intent, controllers make it real. (2) Reconciliation is continuous — delete a pod, and the system self-heals. (3) Running and Ready are different — readiness gates traffic, and that distinction keeps your users safe." |
+| **Audience focus** | Reinforce the mental model: desired state → reconciliation → readiness. |
+| **K8s principle** | The control loop is the core abstraction. Everything else follows from it. |
+| **Likely questions** | "What exactly does reset modify?" / "Where can I learn more?" / "Can I run this demo myself?" |
 | **Terminal fallback** | `curl -X POST http://localhost:8000/api/actions/reset` or `make golden-reset` |
+
+For deeper terminal exploration (etcd internals, pod inspection, JSONPath tricks), see [kubectl-cheatsheet.md](kubectl-cheatsheet.md).
 
 ## Terminal Backup Commands (Quick Reference)
 

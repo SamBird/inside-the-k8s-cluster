@@ -10,7 +10,6 @@ import { PageHero } from "../components/PageHero";
 import { PanelErrorBoundary } from "../components/PanelErrorBoundary";
 import { TopologyView } from "../components/TopologyView";
 import { TrafficPanel } from "../components/TrafficPanel";
-import { WorkloadResourcesPanel } from "../components/WorkloadResourcesPanel";
 import {
   deletePod,
   deployApp,
@@ -361,12 +360,6 @@ const expectedReadyPods = desired.deployed ? desired.replicas : 0;
         <div className="layout-span-2 reveal-5">
           <PanelErrorBoundary label="Topology">
             <TopologyView state={state} />
-          </PanelErrorBoundary>
-        </div>
-
-        <div className="layout-span-2">
-          <PanelErrorBoundary label="Ownership">
-            <WorkloadResourcesPanel state={state} />
           </PanelErrorBoundary>
         </div>
 

@@ -12,16 +12,26 @@ interface ExplainedFlowPanelProps {
   run: ExplainedFlowRun | null;
   state: ClusterState | null;
   onScenarioChange: (scenario: ExplainedFlowScenario) => void;
+  /** Index of the step the presenter has advanced to (0-based). Controls step-through mode. */
+  currentStep?: number;
+  /** Called when the presenter clicks "Next step" or "Show all". */
+  onStepAdvance?: (nextStep: number) => void;
 }
 
 type StepState = "pending" | "active" | "done" | "error";
 
-function stepStateForIndex(run: ExplainedFlowRun | null, index: number, totalSteps: number): StepState {
+function stepStateForIndex(run: ExplainedFlowRun | null, index: number, totalSteps: number, currentStep?: number): StepState {
   if (!run) {
     return "pending";
   }
   if (run.status === "selected") {
-    // Teaching mode: all steps shown as conceptual walkthrough.
+    // Step-through teaching mode: advance one step at a time.
+    if (currentStep !== undefined) {
+      if (index < currentStep) return "done";
+      if (index === currentStep) return "active";
+      return "pending";
+    }
+    // Fallback: show all steps as done if no step tracking.
     return "done";
   }
   if (run.status === "success") {
@@ -69,7 +79,9 @@ export function ExplainedFlowPanel({
   scenario,
   run,
   state,
-  onScenarioChange
+  onScenarioChange,
+  currentStep,
+  onStepAdvance
 }: ExplainedFlowPanelProps) {
   const selected = findExplainedFlowScenario(scenario);
   const runForSelection = run?.scenario === scenario ? run : null;
@@ -136,9 +148,39 @@ export function ExplainedFlowPanel({
         </div>
       ) : null}
 
+      {onStepAdvance && runForSelection?.status === "selected" && currentStep !== undefined ? (() => {
+        const atEnd = currentStep >= selected.steps.length - 1;
+        return (
+          <div className="step-through-controls">
+            <button
+              className="action-button"
+              disabled={atEnd}
+              onClick={() => onStepAdvance(currentStep + 1)}
+            >
+              Next step
+            </button>
+            <span className="step-through-counter">{currentStep + 1} / {selected.steps.length}</span>
+            <button
+              className="action-button action-button-secondary"
+              disabled={atEnd}
+              onClick={() => onStepAdvance(selected.steps.length - 1)}
+            >
+              Show all
+            </button>
+            <button
+              className="action-button action-button-secondary"
+              disabled={currentStep === 0}
+              onClick={() => onStepAdvance(0)}
+            >
+              Reset steps
+            </button>
+          </div>
+        );
+      })() : null}
+
       <ol className="explained-flow-steps">
         {selected.steps.map((step, index) => {
-          const stateClass = stepStateForIndex(runForSelection, index, selected.steps.length);
+          const stateClass = stepStateForIndex(runForSelection, index, selected.steps.length, currentStep);
           return (
             <li key={step.id} className={`explained-step explained-step-${stateClass}`}>
               <div className="explained-step-index">{index + 1}</div>

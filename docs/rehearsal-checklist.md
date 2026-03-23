@@ -24,6 +24,9 @@ make rehearsal-check
 - [ ] Traffic endpoint works:
   - `curl -s http://localhost:8000/api/traffic/info`
   - returns pod/node/version/readiness payload or clear readiness warning
+- [ ] Rollout image (v2) is pre-loaded in cluster:
+  - `docker exec inside-k8s-control-plane crictl images | grep demo-app`
+  - both `v1` and `v2` tags should be listed
 - [ ] Control-plane overview renders:
   - conceptual cards visible
   - discovered cluster context visible (or explicit discovery warning)
@@ -32,7 +35,7 @@ make rehearsal-check
   2. Control-plane overview
   3. Apply YAML journey
   4. Controller reconciliation
-  5. Readiness vs Running
+  5. Readiness, traffic & service routing (requires 3 replicas)
   6. Scaling
   7. Rollout behavior
 
